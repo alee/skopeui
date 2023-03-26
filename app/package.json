@@ -15,6 +15,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "@geoman-io/leaflet-geoman-free": "^2.14.2",
     "@hapi/hapi": "^20.0.3",
     "@nuxtjs/axios": "^5.13.6",
     "@nuxtjs/hapi": "^3.0.0",
@@ -39,7 +40,7 @@
     "markdown-it-attrs": "^4.0.0",
     "markdown-it-div": "^1.1.0",
     "mathjs": "^9.3.2",
-    "nuxt": "^2.15.8",
+    "nuxt": "^2.16.3",
     "nuxt-property-decorator": "^2.9.1",
     "papaparse": "^5.3.1",
     "plotly.js": "^1.58.4",
