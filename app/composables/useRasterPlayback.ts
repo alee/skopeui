@@ -41,7 +41,7 @@ export function useRasterPlayback(
     timer = setTimeout(() => {
       requestedStep.value = next;
       readyStep.value = null;
-    }, 1000);
+    }, 4000);
   }
 
   function frameReady(step: number) {

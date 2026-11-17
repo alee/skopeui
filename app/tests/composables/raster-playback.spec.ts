@@ -19,13 +19,13 @@ describe("raster playback", () => {
     vi.useRealTimers();
   });
 
-  it("waits for the requested raster and holds it for a second", () => {
+  it("waits for the requested raster and holds it for four seconds", () => {
     const p = setup();
     p.togglePlay();
     vi.advanceTimersByTime(5000);
     expect(p.requestedStep.value).toBe(103);
     p.frameReady(103);
-    vi.advanceTimersByTime(999);
+    vi.advanceTimersByTime(3999);
     expect(p.requestedStep.value).toBe(103);
     vi.advanceTimersByTime(1);
     expect(p.requestedStep.value).toBe(104);
@@ -34,7 +34,7 @@ describe("raster playback", () => {
     expect(p.requestedStep.value).toBe(104);
     p.frameReady(104);
     expect(p.displayedStep.value).toBe(104);
-    vi.advanceTimersByTime(1000);
+    vi.advanceTimersByTime(4000);
     expect(p.requestedStep.value).toBe(106);
     p.frameReady(106);
     expect(p.isPlaying.value).toBe(false);
