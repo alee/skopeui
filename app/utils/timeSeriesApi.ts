@@ -1,3 +1,13 @@
+import type {
+  TimeseriesRequest,
+  TimeseriesAnalyzeRequest,
+  TimeseriesResponse,
+  JobStatusResponse,
+} from "@/types/timeseries";
+import type {
+  ExtractionAcceptedResponse,
+  SuccessfulJobStatus,
+} from "@/types/api";
 import {
   TIMESERIES_SUBMIT_ENDPOINT,
   TIMESERIES_STATUS_ENDPOINT,
@@ -10,18 +20,21 @@ const CAPACITY_RETRY_SECONDS = 5;
 const CAPACITY_WAIT_LIMIT_MS = 60_000;
 
 export async function submitTimeSeriesRequest(
-  requestData: Record<string, any>,
+  requestData: TimeseriesRequest,
   isCurrent = () => true,
 ) {
   const deadline = Date.now() + CAPACITY_WAIT_LIMIT_MS;
   for (;;) {
     if (!isCurrent()) throw new Error("Extraction request superseded");
     try {
-      const result = await requestJson(TIMESERIES_SUBMIT_ENDPOINT, {
-        method: "POST",
-        body: JSON.stringify(requestData),
-      });
-      return result.job_id as string;
+      const result = await requestJson<ExtractionAcceptedResponse>(
+        TIMESERIES_SUBMIT_ENDPOINT,
+        {
+          method: "POST",
+          body: JSON.stringify(requestData),
+        },
+      );
+      return result.job_id;
     } catch (error: any) {
       const waitMs =
         (error.response?.retryAfter ?? CAPACITY_RETRY_SECONDS) * 1000;
@@ -33,9 +46,11 @@ export async function submitTimeSeriesRequest(
   }
 }
 
-export async function pollTimeSeriesStatus(jobId: string) {
+export async function pollTimeSeriesStatus(
+  jobId: string,
+): Promise<SuccessfulJobStatus> {
   const statusUrl = `${TIMESERIES_STATUS_ENDPOINT}/${jobId}`;
-  let result = await requestJson(`${statusUrl}`);
+  let result = await requestJson<JobStatusResponse>(`${statusUrl}`);
   const timeoutSeconds = 60;
   const deadline = Date.now() + timeoutSeconds * 1000;
 
@@ -46,11 +61,13 @@ export async function pollTimeSeriesStatus(jobId: string) {
     Date.now() < deadline
   ) {
     await new Promise((resolve) => setTimeout(resolve, 1000));
-    result = await requestJson(`${statusUrl}`);
+    result = await requestJson<JobStatusResponse>(`${statusUrl}`);
   }
 
   if (result.status === "SUCCESS") {
-    return result;
+    if (!result.result)
+      throw new Error("The extraction succeeded without a result.");
+    return { status: "SUCCESS", result: result.result, error: result.error };
   }
   if (result.status === "FAILED") {
     const error = new Error(
@@ -58,8 +75,7 @@ export async function pollTimeSeriesStatus(jobId: string) {
     ) as Error & {
       response?: { status: number; data: unknown };
     };
-    const failMsg: string =
-      result.error ?? result.detail ?? "Analysis job failed";
+    const failMsg: string = result.error ?? "Analysis job failed";
     error.response = {
       status: 500,
       data: { detail: [{ msg: failMsg }] },
@@ -90,16 +106,16 @@ export async function pollTimeSeriesStatus(jobId: string) {
 
 export async function refineTimeSeriesAnalysis(
   jobId: string,
-  requestData: Record<string, any>,
+  requestData: TimeseriesRequest,
 ) {
-  const requestPayload = {
+  const requestPayload: TimeseriesAnalyzeRequest = {
     extraction_id: jobId,
     zonal_statistic: requestData.zonal_statistic,
     transform: requestData.transform,
     requested_series_options: requestData.requested_series_options,
     time_range: requestData.time_range,
   };
-  return await requestJson(TIMESERIES_REFINE_ENDPOINT, {
+  return await requestJson<TimeseriesResponse>(TIMESERIES_REFINE_ENDPOINT, {
     method: "POST",
     body: JSON.stringify(requestPayload),
   });

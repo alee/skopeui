@@ -8,15 +8,20 @@ import {
   refineTimeSeriesAnalysis,
 } from "@/utils/timeSeriesApi";
 
-type RequestData = Record<string, any>;
-type ExtractionResult = { jobId: string; response: any; requestKey: string };
+import type { TimeseriesRequest, TimeseriesResponse } from "@/types/timeseries";
+type RequestData = TimeseriesRequest;
+type ExtractionResult = {
+  jobId: string;
+  response: TimeseriesResponse;
+  requestKey: string;
+};
 
 export const useExtractionStore = defineStore("extraction", () => {
   const dataset = useDatasetStore();
   const jobIds = ref<Record<string, string>>({});
   // Promises stay within this Pinia instance, outside serializable store state.
   const pendingExtractions = new Map<string, Promise<ExtractionResult>>();
-  const pendingRequests = new Map<string, Promise<any>>();
+  const pendingRequests = new Map<string, Promise<TimeseriesResponse>>();
   const pendingPolls = new Map<
     string,
     ReturnType<typeof pollTimeSeriesStatus>
@@ -149,7 +154,7 @@ export const useExtractionStore = defineStore("extraction", () => {
       : refineTimeSeriesAnalysis(fresh.jobId, request);
   }
 
-  function resolveTimeSeries(data: RequestData): Promise<any> {
+  function resolveTimeSeries(data: RequestData): Promise<TimeseriesResponse> {
     // Snapshot reactive input before any asynchronous work.
     const request = JSON.parse(JSON.stringify(data));
     const key = extractionIdentity(request, dataset.metadata);

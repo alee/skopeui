@@ -1,3 +1,4 @@
+import type { TimeseriesResponse } from "@/types/timeseries";
 import { reactive } from "vue";
 import { vi } from "vitest";
 
@@ -8,6 +9,10 @@ export const datasetMetadataFixture = {
 };
 
 export const timeSeriesResponseFixture = {
+  dataset_id: "paleocar",
+  variable_id: "tasmax",
+  zonal_statistic: "mean",
+  transform: { type: "NoTransform" },
   n_cells: 2,
   area: 1200000,
   summary_stats: [{ name: "Original", mean: 1, median: 1, stdev: 0 }],
@@ -16,10 +21,10 @@ export const timeSeriesResponseFixture = {
       time_range: { gte: "0001", lte: "0003" },
       timesteps: ["0001", "0002", "0003"],
       values: [10, 20, 30],
-      options: { name: "Original" },
+      options: { name: "Original", smoother: { type: "NoSmoother" } },
     },
   ],
-};
+} satisfies TimeseriesResponse;
 
 export function createDatasetStore(overrides: Record<string, unknown> = {}) {
   const store = reactive({
@@ -37,6 +42,7 @@ export function createDatasetStore(overrides: Record<string, unknown> = {}) {
       dataset_id: "paleocar",
       variable_id: "tasmax",
       selected_area: { type: "FeatureCollection", features: [] },
+      time_range: { gte: "0001-01-01", lte: "0003-01-01" },
     },
     timeSeriesRequestStatus: { status: "idle", messages: [] },
     defaultApiRequestData: {
@@ -44,6 +50,7 @@ export function createDatasetStore(overrides: Record<string, unknown> = {}) {
       variable_id: "tasmax",
       selected_area: { type: "FeatureCollection", features: [] },
       time_range: { gte: "0001-01-01", lte: "0003-01-01" },
+      max_processing_time: 20000,
     },
     clearTimeSeries: vi.fn(),
     setMetadata: vi.fn((value: unknown) => {

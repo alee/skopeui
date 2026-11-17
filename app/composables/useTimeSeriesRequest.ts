@@ -1,3 +1,5 @@
+import type { DraftTimeseriesRequest } from "@/types/api";
+import { parseTimeseriesRequest } from "@/utils/savedAnalysis";
 import { onScopeDispose } from "vue";
 import { useExtractionStore } from "@/stores/extraction";
 import { useDatasetStore } from "@/stores/dataset";
@@ -16,7 +18,7 @@ export function useTimeSeriesRequest(mode: "visualize" | "analyze") {
     disposed = true;
   });
 
-  async function run(data: Record<string, any>) {
+  async function run(data: DraftTimeseriesRequest) {
     if (disposed) return;
     const ownsRequest = extraction.beginRequest();
     const isCurrent = () => !disposed && ownsRequest();
@@ -27,7 +29,9 @@ export function useTimeSeriesRequest(mode: "visualize" | "analyze") {
     if (!dataset.canHandleTimeSeriesRequest) return;
     dataset.setTimeSeriesLoading();
     try {
-      const response = await extraction.resolveTimeSeries(data);
+      const response = await extraction.resolveTimeSeries(
+        parseTimeseriesRequest(data),
+      );
       if (!isCurrent()) return;
       if (mode === "analyze") {
         analysis.setResponse(response);

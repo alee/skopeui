@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "paths": { "@/*": ["./*"] },
+    "types": []
+  },
+  "include": [
+    "types/api.ts",
+    "types/timeseries.ts",
+    "utils/timeSeriesApi.ts",
+    "utils/requestJson.ts",
+    "utils/savedAnalysis.ts",
+    "composables/useSavedAnalysis.ts",
+    "composables/useTimeSeriesRequest.ts",
+    "stores/dataset.ts",
+    "stores/analysis.ts",
+    "stores/extraction.ts"
+  ]
+}

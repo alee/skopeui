@@ -25,7 +25,11 @@ export function extractionGeometry(area: any): unknown {
 }
 
 export function extractionIdentity(
-  request: Record<string, any>,
+  request: {
+    dataset_id?: string;
+    variable_id?: string | null;
+    selected_area?: unknown;
+  },
   metadata: Dataset | null,
 ): string {
   return stableJson([

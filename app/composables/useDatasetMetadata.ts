@@ -15,10 +15,13 @@ export function useDatasetMetadata() {
 
   // Fetched on every page change, not cached, so a UI left open across an API
   // deploy notices a changed schema version on its next navigation (CUT-001).
+  async function fetchDatasetMetadata() {
+    return datasetsFromMetadata(await requestJson(METADATA_ENDPOINT));
+  }
+
   async function loadAllDatasetMetadata() {
-    const response = await requestJson(METADATA_ENDPOINT);
     try {
-      metadataStore.setAllDatasetMetadata(datasetsFromMetadata(response));
+      metadataStore.setAllDatasetMetadata(await fetchDatasetMetadata());
       const activeId = datasetStore.metadata?.id;
       if (activeId) datasetStore.setMetadata(metadataStore.find(activeId));
     } catch (error) {
@@ -74,5 +77,5 @@ export function useDatasetMetadata() {
     return true;
   }
 
-  return { loadAllDatasetMetadata, initializeDataset };
+  return { loadAllDatasetMetadata, initializeDataset, fetchDatasetMetadata };
 }

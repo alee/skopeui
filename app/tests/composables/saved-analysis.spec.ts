@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createPinia, setActivePinia } from "pinia";
 import { useSavedAnalysis } from "@/composables/useSavedAnalysis";
 import { useDatasetStore } from "@/stores/dataset";
+import { useMetadataStore } from "@/stores/metadata";
 import { useAnalysisStore } from "@/stores/analysis";
 import metadataFixture from "@/tests/fixtures/metadata-1.0.0.json";
 import type { Dataset } from "@/types/metadata";
@@ -99,5 +100,43 @@ describe("saved analysis restoration", () => {
     expect(dataset.geoJson).toEqual(otherArea);
     expect(dataset.temporalRange).toEqual([1700, 1800]);
     expect(useAnalysisStore().requestData).toEqual({});
+  });
+  it.each([
+    [
+      "malformed geometry",
+      {
+        ...request,
+        selected_area: { type: "Point", coordinates: ["bad", 37] },
+      },
+    ],
+    [
+      "reversed range",
+      { ...request, time_range: { gte: "1600", lte: "1500" } },
+    ],
+    ["unavailable dataset", { ...request, dataset_id: "missing" }],
+    ["unavailable variable", { ...request, variable_id: "missing" }],
+    [
+      "out-of-coverage range",
+      { ...request, time_range: { gte: "0001", lte: "1500" } },
+    ],
+  ])("keeps all active state unchanged for %s", async (_description, input) => {
+    const dataset = useDatasetStore();
+    dataset.setMetadata(metadataFixture.datasets[0] as Dataset);
+    dataset.setGeoJson({ type: "Point", coordinates: [1, 2] });
+    dataset.setTemporalRange([1700, 1800]);
+    const analysis = useAnalysisStore();
+    analysis.setRequestData({ zonal_statistic: "median" });
+    const catalog = useMetadataStore();
+    catalog.setAllDatasetMetadata(metadataFixture.datasets as Dataset[]);
+    const snapshot = () =>
+      JSON.stringify([dataset.$state, analysis.$state, catalog.$state]);
+    const previous = snapshot();
+    await expect(useSavedAnalysis().restore(input)).rejects.toThrow();
+    expect(snapshot()).toBe(previous);
+    if (
+      _description === "malformed geometry" ||
+      _description === "reversed range"
+    )
+      expect(fetch).not.toHaveBeenCalled();
   });
 });

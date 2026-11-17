@@ -1,4 +1,7 @@
-export async function requestJson(url: string, options: RequestInit = {}) {
+export async function requestJson<T = unknown>(
+  url: string,
+  options: RequestInit = {},
+): Promise<T> {
   const response = await fetch(url, {
     headers: {
       "Content-Type": "application/json",
@@ -24,5 +27,5 @@ export async function requestJson(url: string, options: RequestInit = {}) {
     throw error;
   }
 
-  return response.json();
+  return response.json() as Promise<T>;
 }

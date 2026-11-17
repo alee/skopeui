@@ -1,11 +1,11 @@
+import type { DraftTimeseriesRequest } from "@/types/api";
+import { defaultAnalysisOptions } from "@/types/api";
 import { defineStore } from "pinia";
 import { toISODate } from "@/store/stats";
 import type { Dataset, Variable } from "@/types/metadata";
 import { useAnalysisStore } from "@/stores/analysis";
 import { extractionGeometry, stableJson } from "@/utils/extractionIdentity";
 import { timeSpan } from "@/utils/timeAxis";
-
-const DEFAULT_MAX_PROCESSING_TIME = 20000;
 
 const LOADING_STATUS = {
   status: "loading",
@@ -34,7 +34,7 @@ const NO_STUDY_AREA_STATUS = {
   ],
 };
 
-type DatasetVariable = Partial<Variable> & { id: string | null };
+type DatasetVariable = Partial<Omit<Variable, "id">> & { id: string | null };
 
 /** Where a dataset's study area is kept in the browser. */
 export function studyAreaKey(datasetId: string) {
@@ -83,7 +83,7 @@ export const useDatasetStore = defineStore("dataset", {
     canHandleTimeSeriesRequest(): boolean {
       return !!this.metadata && this.hasGeoJson && this.variable.id != null;
     },
-    timeSeriesRequestData(): Record<string, any> {
+    timeSeriesRequestData(): DraftTimeseriesRequest {
       return this.defaultApiRequestData;
     },
     timeseriesTrace: (state) => {
@@ -98,7 +98,7 @@ export const useDatasetStore = defineStore("dataset", {
       const metadataId = state.metadata?.id;
       return metadataId ? studyAreaKey(metadataId) : "skope:geometry";
     },
-    defaultApiRequestData(): Record<string, any> {
+    defaultApiRequestData(): DraftTimeseriesRequest {
       const [minYear, maxYear] = this.temporalRange;
       return {
         dataset_id: this.metadata?.id,
@@ -108,15 +108,7 @@ export const useDatasetStore = defineStore("dataset", {
           gte: toISODate(minYear),
           lte: toISODate(maxYear),
         },
-        zonal_statistic: "mean",
-        transform: { type: "NoTransform" },
-        requested_series_options: [
-          {
-            name: "Original",
-            smoother: { type: "NoSmoother" },
-          },
-        ],
-        max_processing_time: DEFAULT_MAX_PROCESSING_TIME,
+        ...defaultAnalysisOptions(),
       };
     },
   },
@@ -237,7 +229,7 @@ export const useDatasetStore = defineStore("dataset", {
       this.hasData = true;
       this.timeSeries = {
         ...payload.timeSeries,
-        options: payload.timeSeries.options || { name: "Original" },
+        options: { name: payload.timeSeries.options?.name ?? "Original" },
       };
       this.setAreaSummary(payload.numberOfCells, payload.area);
     },

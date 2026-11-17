@@ -18,11 +18,13 @@
     "typecheck": "nuxt typecheck",
     "types:metadata": "node scripts/metadata-types.mjs",
     "check:metadata": "node scripts/metadata-validator.mjs",
-    "test": "vitest run",
+    "test": "npm run typecheck:api && vitest run",
     "test:components": "vitest run tests/components",
     "test:pages": "vitest run tests/pages",
     "test:pages:smoke": "vitest run tests/pages --testNamePattern=\\[smoke\\]",
-    "test:pages:behavior": "vitest run tests/pages --testNamePattern=\\[behavior\\]"
+    "test:pages:behavior": "vitest run tests/pages --testNamePattern=\\[behavior\\]",
+    "types:timeseries": "node scripts/timeseries-types.mjs",
+    "typecheck:api": "tsc -p tsconfig.api.json"
   },
   "dependencies": {
     "@geoman-io/maplibre-geoman-free": "^0.10.8",
@@ -32,6 +34,7 @@
     "@turf/turf": "^7.4.0",
     "@vue-leaflet/vue-leaflet": "^0.10.1",
     "@vueuse/core": "^15.0.0",
+    "ajv": "^8.20.0",
     "circle-to-polygon": "^2.2.0",
     "consola": "^3.4.2",
     "file-saver": "^2.0.5",
@@ -61,7 +64,6 @@
     "@vitejs/plugin-vue": "^6.0.11",
     "@vitest/coverage-v8": "^5.1.0",
     "@vue/test-utils": "^2.5.1",
-    "ajv": "^8.20.0",
     "eslint": "^10.14.0",
     "jsdom": "^31.0.1",
     "json-schema-to-typescript": "^16.0.0",

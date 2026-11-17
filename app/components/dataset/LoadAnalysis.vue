@@ -27,6 +27,7 @@
 </template>
 <script setup lang="ts">
 import { useRouter } from "vue-router";
+import { SavedAnalysisValidationError } from "@/utils/savedAnalysis";
 import { useSavedAnalysis } from "@/composables/useSavedAnalysis";
 
 const router = useRouter();
@@ -40,8 +41,9 @@ async function handleLoadRequestDataFile(event: Event) {
   const file = (event.target as HTMLInputElement).files?.[0];
   if (!file) return;
   try {
-    const requestData = JSON.parse(await file.text());
-    await savedAnalysis.restore(requestData);
+    const requestData = await savedAnalysis.restore(
+      JSON.parse(await file.text()),
+    );
     await router.push({
       name: "dataset-id-analyze-variable",
       params: {
@@ -51,7 +53,11 @@ async function handleLoadRequestDataFile(event: Event) {
     });
   } catch (error) {
     console.error(error);
-    alert("Unable to import the request file.");
+    alert(
+      error instanceof SavedAnalysisValidationError
+        ? error.message
+        : "Unable to import the request file.",
+    );
   }
 }
 </script>

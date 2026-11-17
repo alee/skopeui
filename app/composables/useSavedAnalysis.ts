@@ -1,37 +1,50 @@
 import { extractYear } from "@/store/stats";
 import { useDatasetStore } from "@/stores/dataset";
+import { useMetadataStore } from "@/stores/metadata";
 import { useAnalysisStore } from "@/stores/analysis";
 import { useDatasetMetadata } from "@/composables/useDatasetMetadata";
+import { stableJson } from "@/utils/extractionIdentity";
+import {
+  parseSavedAnalysis,
+  validateSavedAnalysisDataset,
+  SavedAnalysisValidationError,
+} from "@/utils/savedAnalysis";
 
-/** Restore selection and options before the caller navigates to Analyze. */
+/** Validate the complete import before committing selection and options. */
 export function useSavedAnalysis() {
   const metadata = useDatasetMetadata();
   const dataset = useDatasetStore();
   const analysis = useAnalysisStore();
+  const metadataStore = useMetadataStore();
+  const context = () =>
+    stableJson([
+      dataset.initializationVersion,
+      dataset.defaultApiRequestData,
+      analysis.requestOptions,
+    ]);
 
-  async function restore(request: Record<string, any>) {
-    const initialized = await metadata.initializeDataset(
-      request.dataset_id,
-      request.variable_id,
-    );
-    if (
-      !initialized ||
-      dataset.metadata?.id !== request.dataset_id ||
-      dataset.variable.id !== request.variable_id
-    ) {
-      throw new Error(
-        "Unable to initialize the saved analysis dataset and variable.",
+  async function restore(input: unknown) {
+    const request = parseSavedAnalysis(input);
+    const previous = context();
+    const catalog = await metadata.fetchDatasetMetadata();
+    if (context() !== previous)
+      throw new SavedAnalysisValidationError(
+        "Unable to initialize the saved analysis: the active selection changed during import.",
       );
-    }
+    const selected = catalog.find((entry) => entry.id === request.dataset_id);
+    validateSavedAnalysisDataset(request, selected);
+    // No awaits after validation: consumers observe the completed selection.
+    metadataStore.setAllDatasetMetadata(catalog);
+    dataset.setMetadata(selected);
+    dataset.setVariable(request.variable_id);
     dataset.setTemporalRange([
       extractYear(request.time_range.gte),
       extractYear(request.time_range.lte),
     ]);
-    // Imported geometry is active state; drawing/saving remains an explicit
-    // persistence operation through useStudyArea.
+    // Importing does not overwrite the dataset's persisted study area.
     dataset.setGeoJson(request.selected_area);
     analysis.setRequestData(request);
+    return request;
   }
-
   return { restore };
 }
