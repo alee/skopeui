@@ -18,13 +18,14 @@
     "typecheck": "nuxt typecheck",
     "types:metadata": "node scripts/metadata-types.mjs",
     "check:metadata": "node scripts/metadata-validator.mjs",
-    "test": "npm run typecheck:api && vitest run",
+    "test": "npm run typecheck:api && npm run typecheck:map && vitest run",
     "test:components": "vitest run tests/components",
     "test:pages": "vitest run tests/pages",
     "test:pages:smoke": "vitest run tests/pages --testNamePattern=\\[smoke\\]",
     "test:pages:behavior": "vitest run tests/pages --testNamePattern=\\[behavior\\]",
     "types:timeseries": "node scripts/timeseries-types.mjs",
-    "typecheck:api": "tsc -p tsconfig.api.json"
+    "typecheck:api": "tsc -p tsconfig.api.json",
+    "typecheck:map": "tsc -p tsconfig.map.json"
   },
   "dependencies": {
     "@geoman-io/maplibre-geoman-free": "^0.10.8",

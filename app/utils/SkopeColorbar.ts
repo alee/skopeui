@@ -1,4 +1,4 @@
-import type maplibregl from "maplibre-gl";
+import type * as maplibregl from "maplibre-gl";
 
 function escapeHtml(s: string): string {
   return s
