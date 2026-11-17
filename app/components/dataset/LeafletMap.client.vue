@@ -104,7 +104,7 @@ import { computed, watch, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
 import { DEFAULT_BASEMAP, LEAFLET_PROVIDERS } from "@/store/modules/constants";
 import circleToPolygon from "circle-to-polygon";
-import { useLegacyStoreActions } from "@/composables/useLegacyStoreActions";
+import { useStudyArea } from "@/composables/useStudyArea";
 import { MAP_COLORS } from "@/utils/colors";
 import {
   getInitialMapViewport,
@@ -128,7 +128,7 @@ const L: any = import.meta.client ? (useNuxtApp() as any).$L : null;
 const route = useRoute();
 const appStore = useAppStore();
 const datasetStore = useDatasetStore();
-const legacyActions = useLegacyStoreActions();
+const studyArea = useStudyArea();
 
 // Reactive UI state
 const defaultDatasetOpacity = 0.0;
@@ -257,7 +257,7 @@ function saveGeometry(layer: any) {
       props.circleToPolygonEdges,
     );
   }
-  legacyActions.saveGeoJson(geoJsonData);
+  studyArea.save(geoJsonData);
 }
 
 function registerToolbarHandlers(map: any) {
@@ -269,7 +269,7 @@ function registerToolbarHandlers(map: any) {
     enableEditOnly(map);
   });
   map.on(L.Draw.Event.DELETED, () => {
-    legacyActions.clearGeoJson();
+    studyArea.clear();
     if (drawnItems.getLayers().length === 0) disableEditOnly(map);
   });
 }
@@ -281,7 +281,7 @@ function mapReady(map: any) {
   // Leaflet can calculate a stale size when mounted in flex/grid layouts; force recalc.
   requestAnimationFrame(() => map.invalidateSize(true));
   addDrawToolbar(map);
-  legacyActions.initializeDatasetGeoJson();
+  studyArea.restore();
   registerToolbarHandlers(map);
   // Mirror original $watch("geoJson", ..., { immediate: true }) called in mapReady.
   // Must be stopped manually (created outside a lifecycle hook).
@@ -306,7 +306,7 @@ function loadGeoJson(event: Event) {
   file.text().then((text) => {
     try {
       const geoJsonData = JSON.parse(text);
-      legacyActions.saveGeoJson(geoJsonData);
+      studyArea.save(geoJsonData);
     } catch (error) {
       console.error(error);
       alert("Sorry, we couldn't import this GeoJSON file: " + text);

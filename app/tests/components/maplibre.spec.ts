@@ -49,10 +49,10 @@ const mocks = vi.hoisted(() => {
     geoJson: null,
   } as any;
 
-  const legacyActions = {
-    initializeDatasetGeoJson: vi.fn(),
-    saveGeoJson: vi.fn(),
-    clearGeoJson: vi.fn(),
+  const studyArea = {
+    restore: vi.fn(),
+    save: vi.fn(),
+    clear: vi.fn(),
   };
 
   const geomanInstance = {
@@ -155,7 +155,7 @@ const mocks = vi.hoisted(() => {
     routeState,
     appStore,
     datasetStore,
-    legacyActions,
+    studyArea,
     geomanInstance,
     mapInstances,
     MockMap,
@@ -183,8 +183,8 @@ vi.mock("@/stores/messages", () => ({
   }),
 }));
 
-vi.mock("@/composables/useLegacyStoreActions", () => ({
-  useLegacyStoreActions: () => mocks.legacyActions,
+vi.mock("@/composables/useStudyArea", () => ({
+  useStudyArea: () => mocks.studyArea,
 }));
 
 vi.mock("@/store/modules/constants", () => ({

@@ -9,7 +9,7 @@ SkopeUI is a Nuxt 4 frontend for paleoclimate dataset discovery, study-area sele
 - The API URL is compiled into the client bundle. Staging must use `https://staging-api.openskope.org`, and changing the URL requires an image rebuild.
 - Pinia stores in `app/stores/` are authoritative for new state. Do not add features to the legacy modules in `app/store/`.
 - Browser-dependent map components use the `.client.vue` suffix.
-- Keep study-area persistence behind `useLegacyStoreActions` until that bridge is deliberately retired. The application supports one active study feature, and circles must become polygons before persistence or API submission.
+- Keep study-area persistence behind `useStudyArea`. The application supports one active study feature, and circles must become polygons before persistence or API submission.
 - Preserve the study-area guard on the visualize and analyze routes (`middleware/requires-study-area.ts`): without an area they redirect to the select-area page.
 - Raster work uses MapLibre with the `skope-api` tile gateway. Do not add direct storage coupling or restore GeoServer/WMS paths.
 

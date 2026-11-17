@@ -18,7 +18,7 @@ Ensure every Nuxt page loads, renders core UI, and completes its primary user ac
 Purpose: verify each page mounts and critical content appears.
 
 - Use Vitest + Vue Test Utils.
-- Mock stores/composables (`useLegacyStoreActions`, Pinia stores) and network calls.
+- Mock stores/composables (`useDatasetMetadata`, `useStudyArea`, Pinia stores) and network calls.
 - Assert no unhandled promise rejection and no Vue error logs.
 
 ### 2) Page Behavior Tests

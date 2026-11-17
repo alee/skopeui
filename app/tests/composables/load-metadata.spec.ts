@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createPinia, setActivePinia } from "pinia";
 
-import { useLegacyStoreActions } from "@/composables/useLegacyStoreActions";
+import { useDatasetMetadata } from "@/composables/useDatasetMetadata";
 import { useDatasetStore } from "@/stores/dataset";
 import { useMetadataStore } from "@/stores/metadata";
 import metadataFixture from "@/tests/fixtures/metadata-1.0.0.json";
@@ -24,7 +24,7 @@ describe("loadAllDatasetMetadata", () => {
 
   it("stores the datasets of a 1.0.0 response", async () => {
     serve(metadataFixture);
-    await useLegacyStoreActions().loadAllDatasetMetadata();
+    await useDatasetMetadata().loadAllDatasetMetadata();
 
     const store = useMetadataStore();
     expect(store.allDatasetMetadata.map((d) => d.id)).toEqual(["paleocar_v3"]);
@@ -33,9 +33,9 @@ describe("loadAllDatasetMetadata", () => {
 
   it("flags an update when the API serves another major version", async () => {
     serve({ ...metadataFixture, schema_version: "2.0.0" });
-    await expect(
-      useLegacyStoreActions().loadAllDatasetMetadata(),
-    ).rejects.toThrow("this UI reads 1.x");
+    await expect(useDatasetMetadata().loadAllDatasetMetadata()).rejects.toThrow(
+      "this UI reads 1.x",
+    );
 
     const store = useMetadataStore();
     expect(store.updateRequired).toBe(true);
@@ -44,7 +44,7 @@ describe("loadAllDatasetMetadata", () => {
 
   it("fetches again on every call, so a changed API is noticed", async () => {
     serve(metadataFixture);
-    const actions = useLegacyStoreActions();
+    const actions = useDatasetMetadata();
     await actions.loadAllDatasetMetadata();
     await actions.loadAllDatasetMetadata();
 
@@ -67,7 +67,7 @@ describe("initializeDataset", () => {
       ...metadataFixture,
       datasets: [{ ...paleocar, default_variable: "gdd_cotton_annual" }],
     });
-    await useLegacyStoreActions().initializeDataset("paleocar_v3");
+    await useDatasetMetadata().initializeDataset("paleocar_v3");
 
     expect(useDatasetStore().variable.id).toBe("gdd_cotton_annual");
   });
@@ -78,7 +78,7 @@ describe("initializeDataset", () => {
       ...metadataFixture,
       datasets: [{ ...paleocar, default_variable: null }],
     });
-    await useLegacyStoreActions().initializeDataset("paleocar_v3");
+    await useDatasetMetadata().initializeDataset("paleocar_v3");
 
     expect(useDatasetStore().variable.id).toBe("ppt_annual");
   });
@@ -86,7 +86,7 @@ describe("initializeDataset", () => {
   it("doesn't wait for metadata between a loaded dataset's steps", async () => {
     // The request can sit behind a running extraction; the next page shouldn't.
     serve(metadataFixture);
-    const actions = useLegacyStoreActions();
+    const actions = useDatasetMetadata();
     await actions.initializeDataset("paleocar_v3");
     let answer: (response: Response) => void = () => undefined;
     vi.stubGlobal(
@@ -102,7 +102,7 @@ describe("initializeDataset", () => {
 
   it("still notices a changed API between a loaded dataset's steps", async () => {
     serve(metadataFixture);
-    const actions = useLegacyStoreActions();
+    const actions = useDatasetMetadata();
     await actions.initializeDataset("paleocar_v3");
     serve({ ...metadataFixture, schema_version: "2.0.0" });
 
@@ -114,7 +114,7 @@ describe("initializeDataset", () => {
 
   it("keeps the variable the URL names", async () => {
     serve(metadataFixture);
-    await useLegacyStoreActions().initializeDataset(
+    await useDatasetMetadata().initializeDataset(
       "paleocar_v3",
       "gdd_cotton_annual",
     );

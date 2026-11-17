@@ -18,7 +18,8 @@ import VisualizePage from "@/pages/dataset/[id]/visualize/[variable].vue";
 const routeParams = { id: "paleocar", variable: "tasmax" };
 let datasetStore: any;
 let appStore: any;
-let legacyActions: any;
+let metadataActions: any;
+let studyArea: any;
 let extractionStore: any;
 
 vi.mock("vue-router", () => ({
@@ -92,8 +93,11 @@ vi.mock("@/stores/extraction", () => ({
   useExtractionStore: () => extractionStore,
 }));
 
-vi.mock("@/composables/useLegacyStoreActions", () => ({
-  useLegacyStoreActions: () => legacyActions,
+vi.mock("@/composables/useDatasetMetadata", () => ({
+  useDatasetMetadata: () => metadataActions,
+}));
+vi.mock("@/composables/useStudyArea", () => ({
+  useStudyArea: () => studyArea,
 }));
 
 const layoutStubs = {
@@ -113,10 +117,8 @@ describe("route /dataset/:id/visualize/:variable", () => {
 
     datasetStore = createDatasetStore({ hasGeoJson: true });
     appStore = createAppStore();
-    legacyActions = {
-      initializeDataset: vi.fn(async () => true),
-      initializeDatasetGeoJson: vi.fn(),
-    };
+    metadataActions = { initializeDataset: vi.fn(async () => true) };
+    studyArea = { restore: vi.fn() };
     extractionStore = {
       beginRequest: () => () => true,
       resolveTimeSeries: vi.fn(async () => timeSeriesResponseFixture),

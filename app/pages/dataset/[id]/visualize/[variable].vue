@@ -83,7 +83,8 @@ import { useAppStore } from "@/stores/app";
 import { useDatasetStore } from "@/stores/dataset";
 import { useMessagesStore } from "@/stores/messages";
 import { useTimeSeriesRequest } from "@/composables/useTimeSeriesRequest";
-import { useLegacyStoreActions } from "@/composables/useLegacyStoreActions";
+import { useDatasetMetadata } from "@/composables/useDatasetMetadata";
+import { useStudyArea } from "@/composables/useStudyArea";
 
 definePageMeta({
   layout: "default",
@@ -96,7 +97,8 @@ const workflowDatasetId = String(route.params.id);
 const appStore = useAppStore();
 const datasetStore = useDatasetStore();
 const messageStore = useMessagesStore();
-const legacyActions = useLegacyStoreActions();
+const metadataActions = useDatasetMetadata();
+const studyArea = useStudyArea();
 const { run: requestTimeSeries } = useTimeSeriesRequest("visualize");
 
 const playbackYears = computed(() =>
@@ -187,7 +189,7 @@ async function loadTimeSeries() {
 await useAsyncData(
   `visualize-${route.params.id}-${route.params.variable}`,
   async () => {
-    await legacyActions.initializeDataset(
+    await metadataActions.initializeDataset(
       route.params.id as string,
       route.params.variable as string,
     );
@@ -207,7 +209,7 @@ await useAsyncData(
 
 onMounted(() => {
   document.addEventListener("visibilitychange", pauseWhenHidden);
-  legacyActions.initializeDatasetGeoJson();
+  studyArea.restore();
   stopTimeSeriesWatch = watch(
     () => datasetStore.timeSeriesRequestData,
     async (data) => {

@@ -1,20 +1,17 @@
-import { METADATA_ENDPOINT } from "../store/modules/constants";
-import { requestJson } from "../utils/requestJson";
-import { extractYear } from "../store/stats";
+import { METADATA_ENDPOINT } from "@/store/modules/constants";
+import { requestJson } from "@/utils/requestJson";
 import {
   datasetsFromMetadata,
   UnsupportedMetadataVersionError,
-} from "../utils/metadataResponse";
-import { useAnalysisStore } from "../stores/analysis";
-import { useDatasetStore } from "../stores/dataset";
-import { useMetadataStore } from "../stores/metadata";
-import { usePersistenceStorage } from "./usePersistenceStorage";
+} from "@/utils/metadataResponse";
+import { useDatasetStore } from "@/stores/dataset";
+import { useMetadataStore } from "@/stores/metadata";
+import { useStudyArea } from "@/composables/useStudyArea";
 
-export function useLegacyStoreActions() {
+export function useDatasetMetadata() {
   const metadataStore = useMetadataStore();
   const datasetStore = useDatasetStore();
-  const analysisStore = useAnalysisStore();
-  const persistenceStorage = usePersistenceStorage();
+  const studyArea = useStudyArea();
 
   // Fetched on every page change, not cached, so a UI left open across an API
   // deploy notices a changed schema version on its next navigation (CUT-001).
@@ -45,7 +42,7 @@ export function useLegacyStoreActions() {
       datasetStore.beginInitialization();
       if (variableId != null) datasetStore.setVariable(variableId);
       loadAllDatasetMetadata().catch(() => undefined);
-      return;
+      return true;
     }
 
     // A different dataset must not display or submit the previous selection
@@ -53,7 +50,7 @@ export function useLegacyStoreActions() {
     datasetStore.setMetadata(null);
     const isCurrent = datasetStore.beginInitialization();
     await loadAllDatasetMetadata();
-    if (!isCurrent()) return;
+    if (!isCurrent()) return false;
 
     const datasetMetadata = metadataStore.find(metadataId);
     if (datasetMetadata == null) {
@@ -64,7 +61,7 @@ export function useLegacyStoreActions() {
             metadataId,
         );
       }
-      return;
+      return false;
     }
 
     datasetStore.setMetadata(datasetMetadata);
@@ -72,43 +69,10 @@ export function useLegacyStoreActions() {
     if (variableId != null) datasetStore.setVariable(variableId);
 
     if (typeof window !== "undefined") {
-      initializeDatasetGeoJson();
+      studyArea.restore();
     }
+    return true;
   }
 
-  function initializeDatasetGeoJson() {
-    if (datasetStore.hasGeoJson) {
-      return;
-    }
-    const geoJson = persistenceStorage.get(datasetStore.geoJsonKey) || null;
-    datasetStore.setGeoJson(geoJson);
-  }
-
-  function clearGeoJson() {
-    persistenceStorage.remove(datasetStore.geoJsonKey);
-    datasetStore.clearGeoJson();
-  }
-
-  function saveGeoJson(geoJson: unknown) {
-    persistenceStorage.set(datasetStore.geoJsonKey, geoJson);
-    datasetStore.setGeoJson(geoJson);
-  }
-
-  function loadRequestData(requestData: Record<string, any>) {
-    datasetStore.setTemporalRange([
-      extractYear(requestData.time_range.gte),
-      extractYear(requestData.time_range.lte),
-    ]);
-    datasetStore.setGeoJson(requestData.selected_area);
-    analysisStore.setRequestData(requestData);
-  }
-
-  return {
-    loadAllDatasetMetadata,
-    initializeDataset,
-    initializeDatasetGeoJson,
-    clearGeoJson,
-    saveGeoJson,
-    loadRequestData,
-  };
+  return { loadAllDatasetMetadata, initializeDataset };
 }

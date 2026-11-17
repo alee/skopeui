@@ -27,10 +27,10 @@
 </template>
 <script setup lang="ts">
 import { useRouter } from "vue-router";
-import { useLegacyStoreActions } from "@/composables/useLegacyStoreActions";
+import { useSavedAnalysis } from "@/composables/useSavedAnalysis";
 
 const router = useRouter();
-const legacyActions = useLegacyStoreActions();
+const savedAnalysis = useSavedAnalysis();
 
 function selectLoadRequestDataFile() {
   document.getElementById("loadRequestDataFile")!.click();
@@ -41,12 +41,7 @@ async function handleLoadRequestDataFile(event: Event) {
   if (!file) return;
   try {
     const requestData = JSON.parse(await file.text());
-    await legacyActions.initializeDataset(
-      requestData.dataset_id,
-      requestData.variable_id,
-    );
-    // The analysis route guard needs the imported area before navigation.
-    legacyActions.loadRequestData(requestData);
+    await savedAnalysis.restore(requestData);
     await router.push({
       name: "dataset-id-analyze-variable",
       params: {

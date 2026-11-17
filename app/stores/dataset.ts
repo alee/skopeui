@@ -163,7 +163,7 @@ export const useDatasetStore = defineStore("dataset", {
         this.temporalRangeDraft = null;
       }
       if (changedDataset) {
-        // Persistence is dataset-scoped; the bridge restores the new area's
+        // Persistence is dataset-scoped; useStudyArea restores the new area's
         // saved geometry after selecting its metadata.
         this.geoJson = null;
         this.variableId = null;

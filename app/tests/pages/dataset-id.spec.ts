@@ -18,7 +18,8 @@ let routeParams = { id: "paleocar" };
 let routeQuery: Record<string, string> = {};
 let datasetStore: any;
 let appStore: any;
-let legacyActions: any;
+let metadataActions: any;
+let studyArea: any;
 
 vi.mock("vue-router", () => ({
   useRoute: () => ({
@@ -58,8 +59,11 @@ vi.mock("@/stores/app", () => ({
   useAppStore: () => appStore,
 }));
 
-vi.mock("@/composables/useLegacyStoreActions", () => ({
-  useLegacyStoreActions: () => legacyActions,
+vi.mock("@/composables/useDatasetMetadata", () => ({
+  useDatasetMetadata: () => metadataActions,
+}));
+vi.mock("@/composables/useStudyArea", () => ({
+  useStudyArea: () => studyArea,
 }));
 
 const layoutStubs = {
@@ -86,10 +90,8 @@ describe("route /dataset/:id", () => {
     routeParams = { id: "paleocar" };
     datasetStore = createDatasetStore({ hasGeoJson: false });
     appStore = createAppStore();
-    legacyActions = {
-      initializeDataset: vi.fn(async () => true),
-      clearGeoJson: vi.fn(),
-    };
+    metadataActions = { initializeDataset: vi.fn(async () => true) };
+    studyArea = { clear: vi.fn() };
   });
 
   afterEach(() => {
@@ -111,7 +113,9 @@ describe("route /dataset/:id", () => {
         .findComponent(DatasetIdPage)
         .find('[data-test="map"]');
 
-      expect(legacyActions.initializeDataset).toHaveBeenCalledWith("paleocar");
+      expect(metadataActions.initializeDataset).toHaveBeenCalledWith(
+        "paleocar",
+      );
       expect(map.attributes("data-display-raster")).toBe("true");
       expect(map.attributes("data-step")).toBe(String(firstYear));
     },

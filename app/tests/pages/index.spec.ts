@@ -16,7 +16,7 @@ import IndexPage from "@/pages/index.vue";
 
 let datasetStore: any;
 let metadataStore: any;
-let legacyActions: any;
+let metadataActions: any;
 
 vi.mock("@/components/dataset/Search.vue", () => ({
   default: {
@@ -48,8 +48,8 @@ vi.mock("@/stores/metadata", () => ({
   useMetadataStore: () => metadataStore,
 }));
 
-vi.mock("@/composables/useLegacyStoreActions", () => ({
-  useLegacyStoreActions: () => legacyActions,
+vi.mock("@/composables/useDatasetMetadata", () => ({
+  useDatasetMetadata: () => metadataActions,
 }));
 
 const layoutStubs = {
@@ -75,7 +75,7 @@ describe("route /", () => {
         { ...datasetMetadataFixture, absoluteUrl: "/dataset/paleocar" },
       ],
     });
-    legacyActions = {
+    metadataActions = {
       loadAllDatasetMetadata: vi.fn(async () => true),
     };
   });
@@ -96,7 +96,7 @@ describe("route /", () => {
     expect(page.exists()).toBe(true);
     expect(page.text()).toContain("Select a Dataset");
     expect(page.text()).toContain("PaleoCAR");
-    expect(legacyActions.loadAllDatasetMetadata).toHaveBeenCalledTimes(1);
+    expect(metadataActions.loadAllDatasetMetadata).toHaveBeenCalledTimes(1);
   });
 
   it("[behavior] shows empty state when filter removes all datasets", async () => {
@@ -114,7 +114,7 @@ describe("route /", () => {
   it("[behavior] shows a spinner, not the empty state, while the datasets load", async () => {
     // As on a first page load: the page renders before the request answers.
     let finish: () => void = () => undefined;
-    legacyActions.loadAllDatasetMetadata = vi.fn(
+    metadataActions.loadAllDatasetMetadata = vi.fn(
       () => new Promise<void>((resolve) => (finish = resolve)),
     );
     vi.stubGlobal(
@@ -142,7 +142,7 @@ describe("route /", () => {
   });
 
   it("[behavior] says the datasets failed to load instead of none found", async () => {
-    legacyActions.loadAllDatasetMetadata = vi.fn(async () => {
+    metadataActions.loadAllDatasetMetadata = vi.fn(async () => {
       throw new Error("Request failed with status 500");
     });
     metadataStore.filteredDatasets = [];

@@ -119,7 +119,7 @@ import {
   LEAFLET_PROVIDERS,
   TILES_ENDPOINT,
 } from "@/store/modules/constants";
-import { useLegacyStoreActions } from "@/composables/useLegacyStoreActions";
+import { useStudyArea } from "@/composables/useStudyArea";
 import {
   getInitialMapViewport,
   type Bbox,
@@ -140,7 +140,7 @@ const route = useRoute();
 const appStore = useAppStore();
 const datasetStore = useDatasetStore();
 const messageStore = useMessagesStore();
-const legacyActions = useLegacyStoreActions();
+const studyArea = useStudyArea();
 
 const mapContainer = ref<HTMLElement | null>(null);
 const isStepLoading = ref(false);
@@ -736,7 +736,7 @@ function handleGmCreate(event: any) {
   const geoJson = event.feature?.getGeoJson?.();
   if (!geoJson) return;
 
-  legacyActions.saveGeoJson(geoJson);
+  studyArea.save(geoJson);
   fitToGeoJson(geoJson);
 }
 
@@ -746,12 +746,12 @@ function handleGmEditEnd(event: any) {
   const geoJson = event.feature?.getGeoJson?.();
   if (!geoJson) return;
 
-  legacyActions.saveGeoJson(geoJson);
+  studyArea.save(geoJson);
 }
 
 function handleGmRemove() {
   if (ignoreStoreWatch) return;
-  legacyActions.clearGeoJson();
+  studyArea.clear();
 }
 
 function addMetadataExtentLayer() {
@@ -790,7 +790,7 @@ function loadGeoJson(event: Event) {
   file.text().then((text) => {
     try {
       const geoJsonData = JSON.parse(text);
-      legacyActions.saveGeoJson(geoJsonData);
+      studyArea.save(geoJsonData);
     } catch {
       alert("Sorry, we couldn't import this GeoJSON file.");
     }
@@ -865,7 +865,7 @@ onMounted(() => {
     isMapLoaded = true;
 
     addMetadataExtentLayer();
-    legacyActions.initializeDatasetGeoJson();
+    studyArea.restore();
 
     addCogRasterLayer(props.step);
 

@@ -177,7 +177,8 @@ import {
 import { useAnalysisStore } from "@/stores/analysis";
 import { useDatasetStore } from "@/stores/dataset";
 import { useTimeSeriesRequest } from "@/composables/useTimeSeriesRequest";
-import { useLegacyStoreActions } from "@/composables/useLegacyStoreActions";
+import { useDatasetMetadata } from "@/composables/useDatasetMetadata";
+import { useStudyArea } from "@/composables/useStudyArea";
 import _ from "lodash";
 import JSZip from "jszip";
 import Papa from "papaparse";
@@ -205,7 +206,8 @@ const editAreaLocation = computed(() =>
 const { mdAndDown } = useDisplay();
 const analysisStore = useAnalysisStore();
 const datasetStore = useDatasetStore();
-const legacyActions = useLegacyStoreActions();
+const metadataActions = useDatasetMetadata();
+const studyArea = useStudyArea();
 const { run: requestTimeSeries } = useTimeSeriesRequest("analyze");
 const { $download } = useNuxtApp() as any;
 
@@ -563,7 +565,7 @@ watch(
 await useAsyncData(
   `analyze-${route.params.id}-${route.params.variable}`,
   async () => {
-    await legacyActions.initializeDataset(
+    await metadataActions.initializeDataset(
       route.params.id as string,
       route.params.variable as string,
     );
@@ -581,7 +583,7 @@ const isMounted = useMounted();
 whenever(
   () => isMounted.value && datasetStore.metadata != null,
   async () => {
-    legacyActions.initializeDatasetGeoJson();
+    studyArea.restore();
     const requestData = initializeRequestData();
     await initializeFormData(requestData);
     const draft = analysisStore.formDrafts?.[draftKey];

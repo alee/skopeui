@@ -3,7 +3,7 @@ import { createPinia, setActivePinia } from "pinia";
 import { useDatasetStore } from "@/stores/dataset";
 import { useAnalysisStore } from "@/stores/analysis";
 import { useExtractionStore } from "@/stores/extraction";
-import { useLegacyStoreActions } from "@/composables/useLegacyStoreActions";
+import { useDatasetMetadata } from "@/composables/useDatasetMetadata";
 import type { Dataset } from "@/types/metadata";
 import metadataFixture from "@/tests/fixtures/metadata-1.0.0.json";
 
@@ -223,7 +223,7 @@ describe("initialization and persistence", () => {
       "fetch",
       vi.fn(() => new Promise(() => {})),
     );
-    await useLegacyStoreActions().initializeDataset(
+    await useDatasetMetadata().initializeDataset(
       paleocar.id,
       "gdd_cotton_annual",
     );
@@ -243,7 +243,7 @@ describe("initialization and persistence", () => {
           }),
       ),
     );
-    const pending = useLegacyStoreActions().initializeDataset(other.id);
+    const pending = useDatasetMetadata().initializeDataset(other.id);
     expect(dataset.metadata).toBeNull();
     expect(dataset.geoJson).toBeNull();
     expect(dataset.hasData).toBe(false);
@@ -268,8 +268,8 @@ describe("initialization and persistence", () => {
           }),
       ),
     );
-    const first = useLegacyStoreActions().initializeDataset(paleocar.id);
-    const second = useLegacyStoreActions().initializeDataset(other.id);
+    const first = useDatasetMetadata().initializeDataset(paleocar.id);
+    const second = useDatasetMetadata().initializeDataset(other.id);
     const response = () =>
       new Response(
         JSON.stringify({ ...metadataFixture, datasets: [paleocar, other] }),
@@ -297,7 +297,7 @@ describe("initialization and persistence", () => {
           ),
       ),
     );
-    await useLegacyStoreActions().initializeDataset(other.id);
+    await useDatasetMetadata().initializeDataset(other.id);
     expect(dataset.geoJson).toEqual(otherArea);
     expect(dataset.geoJsonKey).toBe("geojson:other");
     expect(dataset.variable.id).toBe("other-variable");
@@ -318,7 +318,7 @@ describe("initialization and persistence", () => {
           ),
       ),
     );
-    await useLegacyStoreActions().loadAllDatasetMetadata();
+    await useDatasetMetadata().loadAllDatasetMetadata();
     expect(dataset.metadata?.release_id).toBe("r2");
     expect(dataset.hasData).toBe(false);
     expect(analysis.timeseries).toEqual([]);

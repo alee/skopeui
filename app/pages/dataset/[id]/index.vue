@@ -57,7 +57,8 @@ import { useRoute } from "vue-router";
 import LoadingSpinner from "@/components/LoadingSpinner.vue";
 import SubHeader from "@/components/dataset/SubHeader.vue";
 import Map from "@/components/dataset/Map.client.vue";
-import { useLegacyStoreActions } from "@/composables/useLegacyStoreActions";
+import { useDatasetMetadata } from "@/composables/useDatasetMetadata";
+import { useStudyArea } from "@/composables/useStudyArea";
 import { useAppStore } from "@/stores/app";
 import { useDatasetStore } from "@/stores/dataset";
 
@@ -68,7 +69,8 @@ definePageMeta({
 });
 
 const route = useRoute();
-const legacyActions = useLegacyStoreActions();
+const metadataActions = useDatasetMetadata();
+const studyArea = useStudyArea();
 const appStore = useAppStore();
 const datasetStore = useDatasetStore();
 
@@ -105,7 +107,7 @@ const visualizeLocation = computed(() => {
 await useAsyncData(
   `dataset-${route.params.id}`,
   async () => {
-    await legacyActions.initializeDataset(route.params.id as string);
+    await metadataActions.initializeDataset(route.params.id as string);
     return true;
   },
   { server: false },
@@ -121,7 +123,7 @@ useHead(() => ({
 function clearGeometry() {
   shouldConfirmGeometry.value = false;
   appStore.setVisited();
-  legacyActions.clearGeoJson();
+  studyArea.clear();
 }
 
 function mapLoaded(_value: boolean) {

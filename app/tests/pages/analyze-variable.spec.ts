@@ -17,7 +17,8 @@ import AnalyzePage from "@/pages/dataset/[id]/analyze/[variable].vue";
 const routeParams = { id: "paleocar", variable: "tasmax" };
 let analysisStore: any;
 let datasetStore: any;
-let legacyActions: any;
+let metadataActions: any;
+let studyArea: any;
 let extractionStore: any;
 let messagesStore: any;
 
@@ -74,8 +75,11 @@ vi.mock("@/stores/extraction", () => ({
   useExtractionStore: () => extractionStore,
 }));
 
-vi.mock("@/composables/useLegacyStoreActions", () => ({
-  useLegacyStoreActions: () => legacyActions,
+vi.mock("@/composables/useDatasetMetadata", () => ({
+  useDatasetMetadata: () => metadataActions,
+}));
+vi.mock("@/composables/useStudyArea", () => ({
+  useStudyArea: () => studyArea,
 }));
 
 const layoutStubs = {
@@ -136,10 +140,8 @@ describe("route /dataset/:id/analyze/:variable", () => {
       dismiss: vi.fn(),
       clearMessages: vi.fn(),
     };
-    legacyActions = {
-      initializeDataset: vi.fn(async () => true),
-      initializeDatasetGeoJson: vi.fn(),
-    };
+    metadataActions = { initializeDataset: vi.fn(async () => true) };
+    studyArea = { restore: vi.fn() };
     extractionStore = {
       beginRequest: () => () => true,
       resolveTimeSeries: vi.fn(async () => timeSeriesResponseFixture),
@@ -265,7 +267,7 @@ describe("route /dataset/:id/analyze/:variable", () => {
     datasetStore.metadata = metadata;
     await flushPromises();
 
-    expect(legacyActions.initializeDatasetGeoJson).toHaveBeenCalled();
+    expect(studyArea.restore).toHaveBeenCalled();
     expect(analysisStore.setDefaultRequestData).toHaveBeenCalledTimes(1);
     expect(extractionStore.resolveTimeSeries).toHaveBeenCalledTimes(1);
     expect(datasetStore.setAreaSummary).toHaveBeenCalledWith(

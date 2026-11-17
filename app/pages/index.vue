@@ -56,11 +56,11 @@ import LoadingSpinner from "@/components/LoadingSpinner.vue";
 import Search from "@/components/dataset/Search.vue";
 import { useDatasetStore } from "@/stores/dataset";
 import { useMetadataStore } from "@/stores/metadata";
-import { useLegacyStoreActions } from "@/composables/useLegacyStoreActions";
+import { useDatasetMetadata } from "@/composables/useDatasetMetadata";
 
 definePageMeta({ layout: "default" });
 
-const legacyActions = useLegacyStoreActions();
+const metadataActions = useDatasetMetadata();
 const datasetStore = useDatasetStore();
 const metadataStore = useMetadataStore();
 
@@ -76,7 +76,7 @@ await useAsyncData(
   "landingPageMetadata",
   async () => {
     try {
-      await legacyActions.loadAllDatasetMetadata();
+      await metadataActions.loadAllDatasetMetadata();
       loadFailed.value = false;
       return true;
     } catch (error) {
