@@ -29,12 +29,11 @@ export function useTimeSeriesRequest(mode: "visualize" | "analyze") {
     if (!dataset.canHandleTimeSeriesRequest) return;
     dataset.setTimeSeriesLoading();
     try {
-      const response = await extraction.resolveTimeSeries(
-        parseTimeseriesRequest(data),
-      );
+      const request = parseTimeseriesRequest(data);
+      const response = await extraction.resolveTimeSeries(request);
       if (!isCurrent()) return;
       if (mode === "analyze") {
-        analysis.setResponse(response);
+        analysis.setResponse(response, request);
         dataset.setAreaSummary(response.n_cells, response.area);
       } else {
         const original = response.series[0];

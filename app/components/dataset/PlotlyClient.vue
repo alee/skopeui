@@ -6,6 +6,7 @@
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import Plotly from "plotly.js/lib/core";
 import Scatter from "plotly.js/lib/scatter";
+import { stableJson } from "@/utils/extractionIdentity";
 
 Plotly.register([Scatter]);
 
@@ -17,21 +18,38 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: "click", payload: unknown): void;
+  (e: "ready", ready: boolean): void;
 }>();
 
-const container = ref<HTMLElement | null>(null);
+type PlotContainer = HTMLDivElement & {
+  data?: unknown[];
+  layout?: Record<string, unknown>;
+};
+const container = ref<PlotContainer | null>(null);
+let renderVersion = 0;
+let isReady = false;
 let resizeObserver: ResizeObserver | null = null;
 let resizeFrame: number | null = null;
 
-function renderPlot(
+async function renderPlot(
   data = props.data,
   layout = props.layout,
   options = props.options,
 ) {
-  if (container.value == null) {
-    return;
+  const target = container.value;
+  if (!target) return;
+  const version = ++renderVersion;
+  isReady = false;
+  emit("ready", false);
+  try {
+    await Plotly.react(target, data || [], layout || {}, options || {});
+    if (container.value !== target || version !== renderVersion) return;
+    isReady = true;
+    emit("ready", true);
+  } catch (error) {
+    if (container.value === target && version === renderVersion)
+      console.error("Unable to render plot", error);
   }
-  Plotly.react(container.value, data || [], layout || {}, options || {});
 }
 
 function scheduleResize() {
@@ -61,20 +79,49 @@ function scheduleResize() {
   });
 }
 
-async function toImage(options?: Record<string, unknown>) {
-  if (container.value == null) {
-    return "";
-  }
-  return Plotly.toImage(container.value, options || {});
+async function toImages(
+  expectedData?: Array<{ name?: unknown; x?: unknown; y?: unknown }>,
+): Promise<{ svg: string; png: string }> {
+  if (!isReady || !container.value)
+    throw new Error("The plot is not ready for export.");
+  // Capture the rendered view, including user zoom and trace visibility. The
+  // detached figures survive updates or disposal of the on-screen plot.
+  const data = container.value.data as Array<{
+    name?: unknown;
+    x?: unknown;
+    y?: unknown;
+  }>;
+  const identity = (traces: typeof data) =>
+    traces.map(({ name, x, y }) => ({ name, x, y }));
+  if (
+    expectedData &&
+    stableJson(identity(data)) !== stableJson(identity(expectedData))
+  )
+    throw new Error("The plot does not match the analysis being exported.");
+  const figure = JSON.stringify({
+    data,
+    layout: container.value.layout,
+    config: props.options,
+  });
+  const svg = await Plotly.toImage(JSON.parse(figure), {
+    format: "svg",
+    height: 600,
+    width: 1200,
+  });
+  const png = await Plotly.toImage(JSON.parse(figure), {
+    format: "png",
+    height: 600,
+    width: 1200,
+  });
+  return { svg, png };
 }
 
-defineExpose({
-  toImage,
-});
+defineExpose({ toImages });
 
 onMounted(async () => {
   await nextTick();
-  renderPlot();
+  await renderPlot();
+  if (!container.value) return;
   scheduleResize();
 
   if (container.value != null) {
@@ -103,13 +150,16 @@ watch(
   () => [props.data, props.layout, props.options],
   async () => {
     await nextTick();
-    renderPlot();
+    await renderPlot();
     scheduleResize();
   },
   { deep: true },
 );
 
 onBeforeUnmount(() => {
+  renderVersion++;
+  isReady = false;
+  emit("ready", false);
   resizeObserver?.disconnect();
 
   if (typeof window !== "undefined") {

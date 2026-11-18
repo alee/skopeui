@@ -17,6 +17,7 @@
     "types/api.ts",
     "types/timeseries.ts",
     "utils/timeSeriesApi.ts",
+    "utils/analysisExport.ts",
     "utils/requestJson.ts",
     "utils/savedAnalysis.ts",
     "composables/useSavedAnalysis.ts",

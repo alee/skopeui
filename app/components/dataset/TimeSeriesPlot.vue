@@ -134,6 +134,7 @@
           :layout="layoutMetadata"
           :options="options"
           @click="updatePlotlyStep"
+          @ready="emit('plot-ready', $event)"
         />
       </client-only>
     </div>
@@ -176,6 +177,7 @@ const emit = defineEmits<{
   (e: "step-selected", step: number): void;
   (e: "selected-temporal-range", range: [number, number]): void;
   (e: "pause-playback"): void;
+  (e: "plot-ready", ready: boolean): void;
 }>();
 
 // Lazy-load PlotlyClient to avoid SSR issues
@@ -391,7 +393,7 @@ function getPlotlyApi() {
     return null;
   }
 
-  if (typeof plotlyInstance.toImage === "function") {
+  if (typeof plotlyInstance.toImages === "function") {
     return plotlyInstance;
   }
 
@@ -529,19 +531,10 @@ function applyStepDraftOnBlur() {
 
 watch(() => props.stepSelected, resetStepDraft, { immediate: true });
 
-async function getTimeSeriesPlotImage() {
+async function getTimeSeriesPlotImage(expectedTraces?: unknown[]) {
   const plotlyApi = getPlotlyApi();
-  const svg = await plotlyApi?.toImage({
-    format: "svg",
-    height: 600,
-    width: 1200,
-  });
-  const png = await plotlyApi?.toImage({
-    format: "png",
-    height: 600,
-    width: 1200,
-  });
-  return { png, svg };
+  if (!plotlyApi) throw new Error("The plot is not ready for export.");
+  return plotlyApi.toImages(expectedTraces);
 }
 
 // Watch the status object, not its `status` string: every request sets a new

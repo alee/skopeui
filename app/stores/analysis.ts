@@ -1,8 +1,17 @@
-import type { TimeseriesResponse, Series } from "@/types/timeseries";
-import type { AnalysisOptions, DraftTimeseriesRequest } from "@/types/api";
+import type {
+  TimeseriesRequest,
+  TimeseriesResponse,
+  Series,
+} from "@/types/timeseries";
+import type {
+  AnalysisOptions,
+  DraftTimeseriesRequest,
+  SavedAnalysisRequest,
+} from "@/types/api";
 import { defineStore } from "pinia";
 import { useDatasetStore } from "@/stores/dataset";
 import { formatStats } from "@/utils/stats";
+import { stableJson } from "@/utils/extractionIdentity";
 import { yearOfTimestep } from "@/utils/timeAxis";
 
 export type AnalysisFormDraft = {
@@ -31,6 +40,7 @@ const EMPTY_RESPONSE: TimeseriesResponse = {
 export const useAnalysisStore = defineStore("analysis", {
   state: () => ({
     response: { ...EMPTY_RESPONSE },
+    completedRequest: null as SavedAnalysisRequest | null,
     formDrafts: {} as Record<string, AnalysisFormDraft>,
     // Only analysis choices are stored here; dataset, geometry and range
     // always come from the active dataset selection.
@@ -45,6 +55,13 @@ export const useAnalysisStore = defineStore("analysis", {
         ...state.requestOptions,
       };
     },
+    hasCurrentResult(): boolean {
+      return (
+        this.completedRequest != null &&
+        useDatasetStore().timeSeriesRequestStatus.status === "success" &&
+        stableJson(this.completedRequest) === stableJson(this.requestData)
+      );
+    },
     timeseries: (state) => {
       return (state.response?.series || []).map((s: Series) => ({
         x: s.timesteps.map(yearOfTimestep),
@@ -58,14 +75,18 @@ export const useAnalysisStore = defineStore("analysis", {
   actions: {
     setDefaultRequestData(requestData: Partial<DraftTimeseriesRequest>) {
       this.setRequestData(requestData);
-      this.response = { ...EMPTY_RESPONSE };
+      this.clear();
     },
-    setResponse(response: TimeseriesResponse) {
+    setResponse(response: TimeseriesResponse, request?: TimeseriesRequest) {
       this.response = response;
+      this.completedRequest = request?.time_range
+        ? (JSON.parse(JSON.stringify(request)) as SavedAnalysisRequest)
+        : null;
     },
     /** Drops the last response, e.g. when the study area changes. */
     clear() {
       this.response = { ...EMPTY_RESPONSE };
+      this.completedRequest = null;
     },
     setRequestData(requestData: Partial<DraftTimeseriesRequest>) {
       const {

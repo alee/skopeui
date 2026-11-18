@@ -26,7 +26,7 @@ Location: ${JSON.stringify(requestData.selected_area, null, 2)}
 ## Files
 - \`skope-request.json\` - A plaintext JSON file with all input parameters needed to recreate this analysis. Load this file into the SKOPE app to regenerate the data in this zipfile.
 - \`summary-statistics.json\` - The computed mean, median, and standard deviation of the time series data.
-- \`plot.png\` and \`plog.svg\` - Graph of the time series data.
+- \`plot.png\` and \`plot.svg\` - Graph of the time series data.
 - \`time-series.json\` and \`time-series.csv\` - time series data in JSON and long form CSV formats.
 - \`study-area.geojson\` - GeoJSON file with the defined study area.
 `;

@@ -19,7 +19,13 @@
         >
           Edit study area
         </v-btn>
-        <v-btn color="accent" variant="flat" @click="exportData">
+        <v-btn
+          color="accent"
+          variant="flat"
+          :disabled="!canExport"
+          :loading="isExporting"
+          @click="exportData"
+        >
           Download
           <v-icon class="ml-2" size="small">mdi-download</v-icon>
         </v-btn>
@@ -33,6 +39,7 @@
             :show-step-controls="false"
             :traces="traces"
             :y-axis-label="yAxisLabel"
+            @plot-ready="isPlotReady = $event"
             @selected-temporal-range="updateTimeSeries"
           />
         </v-col>
@@ -179,7 +186,8 @@ import { useDatasetStore } from "@/stores/dataset";
 import { useTimeSeriesRequest } from "@/composables/useTimeSeriesRequest";
 import { useDatasetMetadata } from "@/composables/useDatasetMetadata";
 import { useStudyArea } from "@/composables/useStudyArea";
-import _ from "lodash";
+import { captureAnalysisExport } from "@/utils/analysisExport";
+import { useMessagesStore } from "@/stores/messages";
 import JSZip from "jszip";
 import Papa from "papaparse";
 
@@ -213,6 +221,13 @@ const { run: requestTimeSeries } = useTimeSeriesRequest("analyze");
 const { $download } = useNuxtApp() as any;
 
 const plot = ref<any>(null);
+const isPlotReady = ref(false);
+const isExporting = ref(false);
+const exportMessages = useMessagesStore();
+const canExport = computed(
+  () =>
+    analysisStore.hasCurrentResult && isPlotReady.value && !isExporting.value,
+);
 const zScoreMovingIntervalTimeSteps = ref(25);
 const analysisFormValid = ref(true);
 const zonalStatistic = ref("mean");
@@ -435,42 +450,46 @@ function clearTransformedTimeSeries() {
   analysisStore.setDefaultRequestData(datasetStore.defaultApiRequestData);
 }
 
-function tracesAsArrayOfObjects() {
-  const rows: any[] = [];
-  for (const trace of traces.value) {
-    for (let i = 0; i < trace.x.length; i++) {
-      rows.push({ name: trace.name, x: trace.x[i], y: trace.y[i] });
-    }
-  }
-  return rows;
-}
-
 async function exportData() {
-  const stats = summaryStatistics.value.map((s: any) =>
-    _.mapValues(s, (v: any) => {
-      const f = parseFloat(v);
-      return _.isNaN(f) ? v : f;
-    }),
-  );
-  const plotImages = await plot.value?.getTimeSeriesPlotImage();
-  const png = await fetch(plotImages.png);
-  const svg = await fetch(plotImages.svg);
-  const geoJson = studyAreaGeoJson.value;
-  const requestData = analysisStore.requestData as any;
-  const zip = new JSZip();
-  zip.file("skope-request.json", JSON.stringify(requestData));
-  zip.file("summary-statistics.json", JSON.stringify(stats));
-  zip.file("time-series.json", JSON.stringify(traces.value));
-  zip.file("time-series.csv", Papa.unparse(tracesAsArrayOfObjects()));
-  zip.file("plot.png", await png.blob());
-  zip.file("plot.svg", await svg.blob());
-  zip.file("study-area.geojson", JSON.stringify(geoJson));
-  zip.file("README.md", buildReadme(requestData, buildId));
-  const content = await zip.generateAsync({ type: "blob" });
-  $download.saveAs(
-    content,
-    `${requestData.dataset_id}_${requestData.variable_id}.zip`,
-  );
+  if (!canExport.value || !analysisStore.completedRequest) return;
+  isExporting.value = true;
+  try {
+    const snapshot = captureAnalysisExport(
+      analysisStore.completedRequest,
+      analysisStore.response,
+    );
+    // The plot captures its data and current zoom synchronously before rendering either image.
+    const plotImages = await plot.value.getTimeSeriesPlotImage(snapshot.traces);
+    const [png, svg] = await Promise.all([
+      fetch(plotImages.png).then((image) => image.blob()),
+      fetch(plotImages.svg).then((image) => image.blob()),
+    ]);
+    const zip = new JSZip();
+    zip.file("skope-request.json", JSON.stringify(snapshot.request));
+    zip.file(
+      "summary-statistics.json",
+      JSON.stringify(snapshot.summaryStatistics),
+    );
+    zip.file("time-series.json", JSON.stringify(snapshot.traces));
+    zip.file("time-series.csv", Papa.unparse(snapshot.rows));
+    zip.file("plot.png", png);
+    zip.file("plot.svg", svg);
+    zip.file(
+      "study-area.geojson",
+      JSON.stringify(snapshot.request.selected_area),
+    );
+    zip.file("README.md", buildReadme(snapshot.request, buildId));
+    const content = await zip.generateAsync({ type: "blob" });
+    $download.saveAs(
+      content,
+      `${snapshot.request.dataset_id}_${snapshot.request.variable_id}.zip`,
+    );
+  } catch (error) {
+    console.error("Unable to export analysis", error);
+    exportMessages.error("Unable to prepare the download. Please try again.");
+  } finally {
+    isExporting.value = false;
+  }
 }
 
 async function updateTimeSeries() {

@@ -1,5 +1,6 @@
 import type { TimeseriesResponse } from "@/types/timeseries";
 import { reactive } from "vue";
+import { defaultAnalysisOptions } from "@/types/api";
 import { vi } from "vitest";
 
 export const datasetMetadataFixture = {
@@ -102,16 +103,28 @@ export function createAnalysisStore(overrides: Record<string, unknown> = {}) {
     formDrafts: {} as Record<string, unknown>,
     requestData: null as unknown,
     response: null as unknown,
+    completedRequest: null as unknown,
+    hasCurrentResult: false,
     summaryStatistics: [] as unknown[],
     timeseries: [] as unknown[],
     setDefaultRequestData: vi.fn((value: unknown) => {
-      (store as any).requestData = value;
+      store.hasCurrentResult = false;
+      (store as any).requestData = {
+        ...defaultAnalysisOptions(),
+        ...(value as object),
+      };
     }),
     setRequestData: vi.fn((value: unknown) => {
-      (store as any).requestData = value;
+      store.hasCurrentResult = false;
+      (store as any).requestData = {
+        ...defaultAnalysisOptions(),
+        ...(value as object),
+      };
     }),
-    setResponse: vi.fn((value: any) => {
+    setResponse: vi.fn((value: any, request?: unknown) => {
+      store.hasCurrentResult = true;
       (store as any).response = value;
+      (store as any).completedRequest = request;
       (store as any).summaryStatistics = value.summary_stats ?? [];
       (store as any).timeseries =
         value.series?.map((series: any) => ({
