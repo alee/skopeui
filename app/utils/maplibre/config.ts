@@ -1,55 +1,5 @@
-import { DEFAULT_BASEMAP, LEAFLET_PROVIDERS } from "@/store/modules/constants";
 import { MAP_COLORS, MAP_OPACITIES } from "@/utils/colors";
 
-export type MapLibreBaseLayer = {
-  id: string;
-  name: string;
-  tiles: string[];
-  attribution: string;
-};
-
-function providerNameToId(name: string) {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-}
-
-function resolveSubdomains(provider: any): string[] {
-  if (Array.isArray(provider?.subdomains) && provider.subdomains.length > 0) {
-    return provider.subdomains;
-  }
-  if (
-    typeof provider?.subdomains === "string" &&
-    provider.subdomains.length > 0
-  ) {
-    return provider.subdomains.split("");
-  }
-  return ["a", "b", "c", "d"];
-}
-
-function providerToMapLibreTiles(provider: any): string[] {
-  const urlTemplate = String(provider?.url || "").replace(/\{r\}/g, "");
-  if (!urlTemplate) return [];
-
-  if (!urlTemplate.includes("{s}")) {
-    return [urlTemplate];
-  }
-
-  return resolveSubdomains(provider).map((subdomain) =>
-    urlTemplate.replace(/\{s\}/g, subdomain),
-  );
-}
-
-export const mapBaseLayers: MapLibreBaseLayer[] = LEAFLET_PROVIDERS.map(
-  (provider: any) => ({
-    id: providerNameToId(provider.name),
-    name: provider.name,
-    tiles: providerToMapLibreTiles(provider),
-    attribution: provider.attribution,
-  }),
-).filter((provider: MapLibreBaseLayer) => provider.tiles.length > 0);
-
-export const defaultBaseLayer =
-  mapBaseLayers.find((provider) => provider.name === DEFAULT_BASEMAP) ??
-  mapBaseLayers[0];
 // What to do with each tool, keyed by geoman's mode name. Every drawing tool
 // works by clicking, not by dragging. Shown on the tool's tooltip and next to
 // the pointer while the tool is active.

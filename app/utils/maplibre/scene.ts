@@ -1,11 +1,17 @@
 import * as maplibregl from "maplibre-gl";
 import type { Dataset } from "@/types/metadata";
 import { getInitialMapViewport } from "@/composables/useMapInitialViewport";
-import { mapBaseLayers, FILL_LAYER_ID } from "./config";
+import { FILL_LAYER_ID } from "./config";
+import {
+  createBasemapStyle,
+  basemapLayerId,
+  type BasemapLayer,
+} from "./basemaps";
 import { mapExtentPolygon } from "./geometry";
 import { MAP_COLORS } from "@/utils/colors";
 
 interface SceneOptions {
+  baseLayers: readonly BasemapLayer[];
   metadata: () => Dataset | null;
   selectedBaseLayerId: () => string;
   onBasemapControl: (element: HTMLElement | null) => void;
@@ -17,18 +23,10 @@ export function createMapScene(options: SceneOptions) {
   let map: maplibregl.Map | null = null;
   let isMapLoaded = false;
   let basemapControl: HTMLElement | null = null;
-  function baseSourceId(baseLayerId: string) {
-    return `basemap-source-${baseLayerId}`;
-  }
-
-  function baseLayerId(baseLayerId: string) {
-    return `basemap-layer-${baseLayerId}`;
-  }
-
   function applyBaseLayerSelection(baseLayerIdValue: string) {
     if (!map || !isMapLoaded) return;
-    for (const provider of mapBaseLayers) {
-      const rasterLayerId = baseLayerId(provider.id);
+    for (const provider of options.baseLayers) {
+      const rasterLayerId = basemapLayerId(provider.id);
       if (!map.getLayer(rasterLayerId)) continue;
       map.setLayoutProperty(
         rasterLayerId,
@@ -36,34 +34,6 @@ export function createMapScene(options: SceneOptions) {
         provider.id === baseLayerIdValue ? "visible" : "none",
       );
     }
-  }
-
-  function baseStyle(): maplibregl.StyleSpecification {
-    const activeBaseLayerId = options.selectedBaseLayerId();
-
-    return {
-      version: 8,
-      sources: mapBaseLayers.reduce(
-        (sources: Record<string, maplibregl.SourceSpecification>, provider) => {
-          sources[baseSourceId(provider.id)] = {
-            type: "raster",
-            tiles: [...provider.tiles],
-            tileSize: 256,
-            attribution: provider.attribution,
-          };
-          return sources;
-        },
-        {},
-      ),
-      layers: mapBaseLayers.map((provider) => ({
-        id: baseLayerId(provider.id),
-        type: "raster",
-        source: baseSourceId(provider.id),
-        layout: {
-          visibility: provider.id === activeBaseLayerId ? "visible" : "none",
-        },
-      })),
-    } as maplibregl.StyleSpecification;
   }
 
   function addMetadataExtentLayer() {
@@ -108,7 +78,10 @@ export function createMapScene(options: SceneOptions) {
     const viewport = getInitialMapViewport(options.metadata());
     map = new maplibregl.Map({
       container,
-      style: baseStyle(),
+      style: createBasemapStyle(
+        options.baseLayers,
+        options.selectedBaseLayerId(),
+      ),
       minZoom: 2,
       ...("bbox" in viewport
         ? { bounds: viewport.bbox, fitBoundsOptions: { padding: 20 } }

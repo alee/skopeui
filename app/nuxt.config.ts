@@ -14,11 +14,7 @@ export default defineNuxtConfig({
     },
   },
 
-  plugins: [
-    "~/plugins/markdown.ts",
-    "~/plugins/download.client.ts",
-    "~/plugins/leaflet.client.ts",
-  ],
+  plugins: ["~/plugins/markdown.ts", "~/plugins/download.client.ts"],
 
   modules: [
     "@pinia/nuxt",
@@ -36,8 +32,7 @@ export default defineNuxtConfig({
         { name: "viewport", content: "width=device-width, initial-scale=1" },
         {
           name: "description",
-          content:
-            "Skope dataset discovery, visualization, and analysis.",
+          content: "Skope dataset discovery, visualization, and analysis.",
         },
       ],
       link: [
@@ -61,8 +56,6 @@ export default defineNuxtConfig({
     },
   },
 
-  css: ["leaflet/dist/leaflet.css", "leaflet-draw/dist/leaflet.draw.css"],
-
   runtimeConfig: {
     sentry: {
       dsn:
@@ -71,8 +64,9 @@ export default defineNuxtConfig({
     },
     public: {
       gtagId: process.env.NUXT_PUBLIC_GTAG_ID || "G-M0NVBT90BT",
-      // Leaflet stays reachable with ?map_engine=leaflet until it's removed.
-      mapEngine: process.env.NUXT_PUBLIC_MAP_ENGINE || "maplibre",
+      cartoApiKey: "",
+      stadiaApiKey: "",
+      stadiaDomainAuth: false,
     },
   },
 

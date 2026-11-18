@@ -1,8 +1,16 @@
 import { mount } from "@vue/test-utils";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import ListItem from "@/components/dataset/ListItem.vue";
 import metadataFixture from "@/tests/fixtures/metadata-1.0.0.json";
+
+vi.mock("@/components/dataset/DatasetMapPreview.client.vue", () => ({
+  default: {
+    name: "DatasetMapPreview",
+    props: ["bbox", "mapView", "title"],
+    template: '<div data-test="preview" />',
+  },
+}));
 
 const [paleocar] = metadataFixture.datasets;
 
@@ -12,8 +20,8 @@ function mountListItem(overrides: Record<string, unknown> = {}) {
     global: {
       mocks: { $md: { render: (text: string) => text } },
       stubs: {
-        "client-only": true,
-        NuxtLink: { template: "<a><slot /></a>" },
+        "client-only": { template: "<div><slot /></div>" },
+        NuxtLink: { props: ["to"], template: '<a :href="to"><slot /></a>' },
         MetadataModal: true,
         "v-list-item": {
           props: ["title"],
@@ -50,5 +58,18 @@ describe("ListItem", () => {
 
   it("leaves out the source line without a via link", () => {
     expect(mountListItem({ links: [] }).text()).not.toContain("Source:");
+  });
+  it("passes the advertised viewport to the dataset preview", () => {
+    const wrapper = mountListItem();
+    const preview = wrapper.findComponent({ name: "DatasetMapPreview" });
+    expect(wrapper.find(".list-item-map-link").attributes("href")).toBe(
+      "/dataset/paleocar_v3",
+    );
+    expect(preview.element.closest("a")).toBeNull();
+    expect(preview.props()).toMatchObject({
+      bbox: paleocar.bbox,
+      mapView: paleocar.map_view,
+      title: paleocar.title,
+    });
   });
 });

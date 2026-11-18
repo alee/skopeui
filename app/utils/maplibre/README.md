@@ -19,8 +19,12 @@ work; asynchronous Geoman setup must finish without reviving a disposed map.
 Drawing configuration is built separately for each instance because plugins
 may mutate their options.
 
-`config.ts` supplies styles and tool configuration; `geometry.ts` holds shared
-GeoJSON normalization. Tile URLs remain under the API gateway, and rendering
+`basemaps.ts` supplies provider definitions and raster styles, including optional
+authenticated providers. `preview.ts` owns the discovery-card maps; its component
+mounts them near the viewport and disposes them when offscreen.
+
+`config.ts` supplies drawing styles and tool configuration; `geometry.ts` holds
+shared GeoJSON normalization. Tile URLs remain under the API gateway, and rendering
 ranges and palettes remain API-owned.
 
 `make test` runs controller TypeScript checks and component integration tests

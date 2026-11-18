@@ -114,12 +114,11 @@ import { useStudyArea } from "@/composables/useStudyArea";
 import { useAppStore } from "@/stores/app";
 import { useDatasetStore } from "@/stores/dataset";
 import { useMessagesStore } from "@/stores/messages";
+import { getBasemaps, DEFAULT_BASEMAP_ID } from "@/utils/maplibre/basemaps";
 import { createMapScene } from "@/utils/maplibre/scene";
 import { createRasterController } from "@/utils/maplibre/raster";
 import { createStudyAreaController } from "@/utils/maplibre/studyArea";
 import {
-  mapBaseLayers,
-  defaultBaseLayer,
   DRAW_CALLOUT,
   EDIT_CALLOUT,
   TOOL_INSTRUCTIONS,
@@ -135,6 +134,10 @@ const appStore = useAppStore();
 const datasetStore = useDatasetStore();
 const messageStore = useMessagesStore();
 const studyArea = useStudyArea();
+const mapBaseLayers = getBasemaps(useRuntimeConfig().public);
+const defaultBaseLayer = mapBaseLayers.find(
+  (layer) => layer.id === DEFAULT_BASEMAP_ID,
+);
 const mapContainer = ref<HTMLElement | null>(null);
 const isStepLoading = ref(false);
 const metadata = computed(() => datasetStore.metadata);
@@ -202,6 +205,7 @@ const drawing = createStudyAreaController({
   },
 });
 const scene = createMapScene({
+  baseLayers: mapBaseLayers,
   metadata: () => metadata.value,
   selectedBaseLayerId: () => selectedBaseLayerId.value,
   onBasemapControl: (element) => {

@@ -32,9 +32,9 @@ vi.mock("vue-router", () => ({
 vi.mock("@/components/dataset/Map.client.vue", () => ({
   default: {
     name: "MapStub",
-    props: ["mapEngine", "displayRaster", "step"],
+    props: ["displayRaster", "step"],
     template:
-      '<div data-test="map" :data-map-engine="mapEngine" :data-display-raster="String(displayRaster)">map<slot name="footer" /></div>',
+      '<div data-test="map" :data-display-raster="String(displayRaster)">map<slot name="footer" /></div>',
   },
 }));
 
@@ -140,7 +140,6 @@ describe("route /dataset/:id/visualize/:variable", () => {
     const map = page.find('[data-test="map"]');
 
     expect(page.findComponent({ name: "MapStub" }).exists()).toBe(true);
-    expect(map.attributes("data-map-engine")).toBe("maplibre");
     expect(map.attributes("data-display-raster")).toBe("true");
     expect(map.find('[data-test="map-playback"]').exists()).toBe(true);
     expect(page.findComponent({ name: "TimeSeriesPlotStub" }).exists()).toBe(

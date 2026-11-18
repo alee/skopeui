@@ -32,7 +32,6 @@
           <Map
             :step="requestedStep"
             :display-raster="true"
-            map-engine="maplibre"
             @step-ready="frameReady"
             @step-error="frameFailed"
           >

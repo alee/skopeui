@@ -189,20 +189,6 @@ vi.mock("@/composables/useStudyArea", () => ({
 
 vi.mock("@/store/modules/constants", () => ({
   TILES_ENDPOINT: "https://test.example.com/tiles",
-  DEFAULT_BASEMAP: "Esri.WorldTopoMap",
-  LEAFLET_PROVIDERS: [
-    {
-      name: "CartoDB.Positron",
-      url: "https://{s}.example.com/light/{z}/{x}/{y}{r}.png",
-      attribution: "Carto",
-      subdomains: "ab",
-    },
-    {
-      name: "Esri.WorldTopoMap",
-      url: "https://example.com/topo/{z}/{y}/{x}",
-      attribution: "Esri",
-    },
-  ],
 }));
 
 vi.mock("maplibre-gl", () => ({
@@ -248,6 +234,9 @@ const uiStubs = {
 
 describe("MapLibre", () => {
   beforeEach(() => {
+    vi.stubGlobal("useRuntimeConfig", () => ({
+      public: { cartoApiKey: "test-carto-key" },
+    }));
     mocks.routeState.name = "dataset-id";
     mocks.routeState.params = { id: "paleocar" };
     mocks.datasetStore.geoJson = null;
@@ -259,6 +248,7 @@ describe("MapLibre", () => {
   });
 
   afterEach(() => {
+    vi.unstubAllGlobals();
     vi.clearAllMocks();
   });
 

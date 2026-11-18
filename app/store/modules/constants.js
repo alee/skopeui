@@ -1,4 +1,3 @@
-import { find } from "lodash";
 import { API_HOST_URL, BUILD_ID } from "@/store/modules/_constants";
 import { extractYear, toISODate } from "@/store/stats";
 
@@ -9,33 +8,6 @@ export const TILES_ENDPOINT = `${API_HOST_URL}/tiles`;
 export const TIMESERIES_SUBMIT_ENDPOINT = `${API_HOST_URL}/timeseries/extract`;
 export const TIMESERIES_STATUS_ENDPOINT = `${API_HOST_URL}/timeseries/status`;
 export const TIMESERIES_REFINE_ENDPOINT = `${API_HOST_URL}/timeseries/analyze`;
-// Every map starts on the topographic basemap, like the landing page's cards.
-export const DEFAULT_BASEMAP = "Esri.WorldTopoMap";
-export const LEAFLET_PROVIDERS = [
-  {
-    name: "Esri.WorldTopoMap",
-    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
-    attribution: "Tiles &copy; Esri et al",
-  },
-  {
-    name: "Esri.WorldGrayCanvas",
-    url: "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}",
-    attribution: "Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ",
-  },
-  {
-    name: "Esri.WorldTerrain",
-    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer/tile/{z}/{y}/{x}",
-    attribution:
-      "Tiles &copy; Esri &mdash; Source: USGS, Esri, TANA, DeLorme, and NPS",
-  },
-];
-
-export class BaseMapProvider {
-  static get(name) {
-    return find(LEAFLET_PROVIDERS, { name });
-  }
-}
-
 export function buildReadme(requestData) {
   return `
 # SKOPE data for ${requestData.dataset_id} / ${requestData.variable_id}
