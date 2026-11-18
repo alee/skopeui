@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { TRANSFORM_OPTIONS } from "@/store/modules/constants";
+import { TRANSFORM_OPTIONS } from "@/utils/analysisOptions";
 
 // The analyze page's form, as the options read and write it.
 function form(overrides: Record<string, unknown> = {}) {

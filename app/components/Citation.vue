@@ -61,12 +61,11 @@
 </template>
 <script setup lang="ts">
 import { ref } from "vue";
-import { CITATION_TXT, CITATION_BIB } from "@/store/modules/_constants";
+import citationText from "@/generated/citation.txt?raw";
+import citationBibTex from "@/generated/citation.bib?raw";
 
 const showCitation = ref(false);
 const clipboardMessage = ref(false);
-const citationText = CITATION_TXT;
-const citationBibTex = CITATION_BIB;
 
 function copyToClipboard(evt: MouseEvent) {
   const srcElement = evt.target as HTMLTextAreaElement;

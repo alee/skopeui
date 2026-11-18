@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Generate citation files for build constants
+      - name: Generate citation assets
         run: make citations
       - name: Run test suite
         run: make test

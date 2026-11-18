@@ -25,11 +25,13 @@ CMD ["npm", "run", "dev"]
 
 FROM dependencies AS build
 
+ARG SKOPE_BUILD_ID=development
+
 ENV NODE_ENV=production \
     NITRO_PRESET=node-server
 
 COPY . .
-RUN npm run build
+RUN SKOPE_BUILD_ID="$SKOPE_BUILD_ID" npm run build
 
 # Keep build tools and package managers out of the deployed image.
 FROM debian:trixie-slim AS production

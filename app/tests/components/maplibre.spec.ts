@@ -187,10 +187,6 @@ vi.mock("@/composables/useStudyArea", () => ({
   useStudyArea: () => mocks.studyArea,
 }));
 
-vi.mock("@/store/modules/constants", () => ({
-  TILES_ENDPOINT: "https://test.example.com/tiles",
-}));
-
 vi.mock("maplibre-gl", () => ({
   Map: mocks.MockMap,
   NavigationControl: class MockNavigationControl {},
@@ -235,7 +231,10 @@ const uiStubs = {
 describe("MapLibre", () => {
   beforeEach(() => {
     vi.stubGlobal("useRuntimeConfig", () => ({
-      public: { cartoApiKey: "test-carto-key" },
+      public: {
+        apiBase: "https://test.example.com",
+        cartoApiKey: "test-carto-key",
+      },
     }));
     mocks.routeState.name = "dataset-id";
     mocks.routeState.params = { id: "paleocar" };

@@ -76,7 +76,8 @@
 </template>
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import { CITATION_TXT, CITATION_BIB } from "@/store/modules/_constants";
+import citationText from "@/generated/citation.txt?raw";
+import citationBibTex from "@/generated/citation.bib?raw";
 import { usePersistenceStorage } from "@/composables/usePersistenceStorage";
 
 const persistenceStorage = usePersistenceStorage();
@@ -84,8 +85,6 @@ const TERMS_KEY = "skope:termsAccepted";
 
 const showTerms = ref(true);
 const clipboardMessage = ref(false);
-const citationText = CITATION_TXT;
-const citationBibTex = CITATION_BIB;
 
 onMounted(() => {
   showTerms.value = !persistenceStorage.get(TERMS_KEY);

@@ -2,11 +2,8 @@ import { defineStore } from "pinia";
 import { ref, watch } from "vue";
 import { useDatasetStore } from "@/stores/dataset";
 import { extractionIdentity, stableJson } from "@/utils/extractionIdentity";
-import {
-  submitTimeSeriesRequest,
-  pollTimeSeriesStatus,
-  refineTimeSeriesAnalysis,
-} from "@/utils/timeSeriesApi";
+import { createTimeSeriesApi } from "@/utils/timeSeriesApi";
+import { useRuntimeConfig } from "nuxt/app";
 
 import type { TimeseriesRequest, TimeseriesResponse } from "@/types/timeseries";
 type RequestData = TimeseriesRequest;
@@ -17,6 +14,11 @@ type ExtractionResult = {
 };
 
 export const useExtractionStore = defineStore("extraction", () => {
+  const {
+    submitTimeSeriesRequest,
+    pollTimeSeriesStatus,
+    refineTimeSeriesAnalysis,
+  } = createTimeSeriesApi(useRuntimeConfig().public.apiBase);
   const dataset = useDatasetStore();
   const jobIds = ref<Record<string, string>>({});
   // Promises stay within this Pinia instance, outside serializable store state.

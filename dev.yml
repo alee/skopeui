@@ -3,6 +3,8 @@ services:
     build:
       target: development
     image: openskope/skopeui:dev
+    environment:
+      SKOPE_BUILD_ID: ${SKOPE_BUILD_ID:-development}
     volumes:
       - ./app:/code
       - /code/node_modules

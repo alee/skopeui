@@ -1,4 +1,5 @@
-import { METADATA_ENDPOINT } from "@/store/modules/constants";
+import { createApiEndpoints } from "@/utils/apiEndpoints";
+import { useRuntimeConfig } from "nuxt/app";
 import { requestJson } from "@/utils/requestJson";
 import {
   datasetsFromMetadata,
@@ -9,6 +10,7 @@ import { useMetadataStore } from "@/stores/metadata";
 import { useStudyArea } from "@/composables/useStudyArea";
 
 export function useDatasetMetadata() {
+  const endpoints = createApiEndpoints(useRuntimeConfig().public.apiBase);
   const metadataStore = useMetadataStore();
   const datasetStore = useDatasetStore();
   const studyArea = useStudyArea();
@@ -16,7 +18,7 @@ export function useDatasetMetadata() {
   // Fetched on every page change, not cached, so a UI left open across an API
   // deploy notices a changed schema version on its next navigation (CUT-001).
   async function fetchDatasetMetadata() {
-    return datasetsFromMetadata(await requestJson(METADATA_ENDPOINT));
+    return datasetsFromMetadata(await requestJson(endpoints.metadata));
   }
 
   async function loadAllDatasetMetadata() {

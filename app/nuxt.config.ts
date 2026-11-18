@@ -56,6 +56,10 @@ export default defineNuxtConfig({
     },
   },
 
+  appConfig: {
+    buildId: process.env.SKOPE_BUILD_ID || "development",
+  },
+
   runtimeConfig: {
     sentry: {
       dsn:
@@ -63,6 +67,7 @@ export default defineNuxtConfig({
         "https://9b9dc2f60562380edeb675c39fe1c896@sentry.comses.net/4",
     },
     public: {
+      apiBase: "http://localhost:8001",
       gtagId: process.env.NUXT_PUBLIC_GTAG_ID || "G-M0NVBT90BT",
       cartoApiKey: "",
       stadiaApiKey: "",

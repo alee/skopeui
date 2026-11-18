@@ -1,44 +1,47 @@
-import { API_HOST_URL, BUILD_ID } from "@/store/modules/_constants";
-import { extractYear, toISODate } from "@/store/stats";
+import type {
+  SeriesOptions,
+  TimeseriesRequest,
+  TimeRange,
+} from "@/types/timeseries";
+import { extractYear, toISODate } from "@/utils/stats";
 
 export const DEFAULT_CENTERED_SMOOTHING_WIDTH = 11;
-export const DEFAULT_MAX_PROCESSING_TIME = 20000; // in ms
-export const METADATA_ENDPOINT = `${API_HOST_URL}/metadata`;
-export const TILES_ENDPOINT = `${API_HOST_URL}/tiles`;
-export const TIMESERIES_SUBMIT_ENDPOINT = `${API_HOST_URL}/timeseries/extract`;
-export const TIMESERIES_STATUS_ENDPOINT = `${API_HOST_URL}/timeseries/status`;
-export const TIMESERIES_REFINE_ENDPOINT = `${API_HOST_URL}/timeseries/analyze`;
-export function buildReadme(requestData) {
-  return `
-# SKOPE data for ${requestData.dataset_id} / ${requestData.variable_id}
-### [version: ${BUILD_ID}](https://github.com/openskope/skopeui)
 
-## Terms of Service
-By using the SKOPE application, you assume any risk associated with its use. You are solely responsible for any damage or loss you may incur resulting from your reliance on or use of information provided by SKOPE.
+type Transform = TimeseriesRequest["transform"];
+type Smoother = SeriesOptions["smoother"];
 
-## Citation
-Use of data, graphics, or other information provided by SKOPE should be accompanied by a citation of the original data source (provided by SKOPE in the dataset metadata) and of the SKOPE application Web page. Example reference: (SKOPE 2021).
+export interface AnalysisOptionForm {
+  smoothingOption: string;
+  smoothingTimeStep: number;
+  transformOption: string;
+  temporalRange: number[];
+  timeRange: {
+    lb: { year: number; month: number };
+    ub: { year: number; month: number };
+  };
+  zScoreMovingIntervalTimeSteps: number;
+}
 
-Example Citation:
-> SKOPE 2021 SKOPE: Synthesizing Knowledge of Past Environments. https://app.openskope.org/. Accessed 1 July 2021.
+interface SmoothingOption {
+  label: string;
+  id: string;
+  type: Smoother["type"];
+  method: "none" | "centered" | "trailing";
+  toRequestData(form: AnalysisOptionForm): Smoother;
+  fromRequestData(form: AnalysisOptionForm, request: Smoother): void;
+}
 
-## Contact
-For comments, feedback, or questions, please use the "Email Us" button on the application navigation bar or send us a note at skope-team@googlegroups.com
-
-Time range: ${requestData.time_range.gte} - ${requestData.time_range.lte} CE
-Location: ${JSON.stringify(requestData.selected_area, null, 2)}
-
-## Files
-- \`skope-request.json\` - A plaintext JSON file with all input parameters needed to recreate this analysis. Load this file into the SKOPE app to regenerate the data in this zipfile.
-- \`summary-statistics.json\` - The computed mean, median, and standard deviation of the time series data.
-- \`plot.png\` and \`plog.svg\` - Graph of the time series data.
-- \`time-series.json\` and \`time-series.csv\` - time series data in JSON and long form CSV formats.
-- \`study-area.geojson\` - GeoJSON file with the defined study area.
-`;
+interface TransformOption {
+  label: string;
+  id: string;
+  type: Transform["type"];
+  matches(transform: Transform, timeRange?: TimeRange | null): boolean;
+  toRequestData(form: AnalysisOptionForm): Transform;
+  fromRequestData(form: AnalysisOptionForm, request: Transform): void;
 }
 
 // constants data structure of available smoothing options to present in the UI
-export const SMOOTHING_OPTIONS = [
+export const SMOOTHING_OPTIONS: SmoothingOption[] = [
   {
     label: "None (time steps individually plotted)",
     id: "none",
@@ -46,7 +49,7 @@ export const SMOOTHING_OPTIONS = [
     method: "none",
     toRequestData: function (analyzeVue) {
       return {
-        type: this.type,
+        type: "NoSmoother",
       };
     },
     fromRequestData: function (analyzeVue, requestData) {
@@ -60,14 +63,15 @@ export const SMOOTHING_OPTIONS = [
     type: "MovingAverageSmoother",
     toRequestData: function (analyzeVue) {
       return {
-        type: this.type,
-        method: this.method,
+        type: "MovingAverageSmoother",
+        method: "centered",
         width: analyzeVue.smoothingTimeStep,
       };
     },
     fromRequestData: function (analyzeVue, requestData) {
       analyzeVue.smoothingOption = this.id;
-      analyzeVue.smoothingTimeStep = requestData.width;
+      if (requestData.type === "MovingAverageSmoother")
+        analyzeVue.smoothingTimeStep = requestData.width;
     },
   },
   {
@@ -77,19 +81,23 @@ export const SMOOTHING_OPTIONS = [
     type: "MovingAverageSmoother",
     toRequestData: function (analyzeVue) {
       return {
-        type: this.type,
-        method: this.method,
+        type: "MovingAverageSmoother",
+        method: "trailing",
         width: analyzeVue.smoothingTimeStep,
       };
     },
     fromRequestData: function (analyzeVue, requestData) {
       analyzeVue.smoothingOption = this.id;
-      analyzeVue.smoothingTimeStep = requestData.width;
+      if (requestData.type === "MovingAverageSmoother")
+        analyzeVue.smoothingTimeStep = requestData.width;
     },
   },
 ];
 
-function sameYears(a, b) {
+function sameYears(
+  a: TimeRange | null | undefined,
+  b: TimeRange | null | undefined,
+) {
   if (a == null || b == null) return false;
   return (
     extractYear(a.gte) === extractYear(b.gte) &&
@@ -102,7 +110,7 @@ function sameYears(a, b) {
 // from, given the request's own time range. Two options send
 // ZScoreFixedInterval: "selected" uses the request's range as its reference,
 // "fixed" a range the user typed.
-export const TRANSFORM_OPTIONS = [
+export const TRANSFORM_OPTIONS: TransformOption[] = [
   {
     label: "None: Modeled values displayed",
     id: "none",
@@ -112,7 +120,7 @@ export const TRANSFORM_OPTIONS = [
     },
     toRequestData: function () {
       return {
-        type: this.type,
+        type: "NoTransform",
       };
     },
     fromRequestData: function (analyzeVue) {
@@ -126,7 +134,7 @@ export const TRANSFORM_OPTIONS = [
     matches: function (transform, timeRange) {
       // Requests saved before the reference was sent carry none.
       return (
-        transform.type === this.type &&
+        transform.type === "ZScoreFixedInterval" &&
         (transform.time_range == null ||
           sameYears(transform.time_range, timeRange))
       );
@@ -135,7 +143,7 @@ export const TRANSFORM_OPTIONS = [
       // The API's reference defaults to the whole stored extraction, which
       // need not be the range on screen, so send the range explicitly.
       return {
-        type: this.type,
+        type: "ZScoreFixedInterval",
         time_range: {
           gte: toISODate(analyzeVue.temporalRange[0]),
           lte: toISODate(analyzeVue.temporalRange[1]),
@@ -152,14 +160,14 @@ export const TRANSFORM_OPTIONS = [
     type: "ZScoreFixedInterval",
     matches: function (transform, timeRange) {
       return (
-        transform.type === this.type &&
+        transform.type === "ZScoreFixedInterval" &&
         transform.time_range != null &&
         !sameYears(transform.time_range, timeRange)
       );
     },
     toRequestData: function (analyzeVue) {
       return {
-        type: this.type,
+        type: "ZScoreFixedInterval",
         time_range: {
           gte: toISODate(analyzeVue.timeRange.lb.year),
           lte: toISODate(analyzeVue.timeRange.ub.year),
@@ -169,6 +177,8 @@ export const TRANSFORM_OPTIONS = [
     fromRequestData: function (analyzeVue, requestData) {
       // The form edits years; the request carries ISO dates or keys.
       analyzeVue.transformOption = this.id;
+      if (requestData.type !== "ZScoreFixedInterval" || !requestData.time_range)
+        return;
       analyzeVue.timeRange = {
         lb: { year: extractYear(requestData.time_range.gte), month: 1 },
         ub: { year: extractYear(requestData.time_range.lte), month: 1 },
@@ -184,13 +194,14 @@ export const TRANSFORM_OPTIONS = [
     },
     toRequestData: function (analyzeVue) {
       return {
-        type: this.type,
+        type: "ZScoreMovingInterval",
         width: analyzeVue.zScoreMovingIntervalTimeSteps,
       };
     },
     fromRequestData: function (analyzeVue, requestData) {
       analyzeVue.transformOption = this.id;
-      analyzeVue.zScoreMovingIntervalTimeSteps = requestData.width;
+      if (requestData.type === "ZScoreMovingInterval")
+        analyzeVue.zScoreMovingIntervalTimeSteps = requestData.width;
     },
   },
 ];

@@ -1,4 +1,4 @@
-import { extractYear } from "@/store/stats";
+import { extractYear } from "@/utils/stats";
 import { useDatasetStore } from "@/stores/dataset";
 import { useMetadataStore } from "@/stores/metadata";
 import { useAnalysisStore } from "@/stores/analysis";

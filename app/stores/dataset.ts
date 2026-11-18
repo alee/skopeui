@@ -1,7 +1,7 @@
 import type { DraftTimeseriesRequest } from "@/types/api";
 import { defaultAnalysisOptions } from "@/types/api";
 import { defineStore } from "pinia";
-import { toISODate } from "@/store/stats";
+import { toISODate } from "@/utils/stats";
 import type { Dataset, Variable } from "@/types/metadata";
 import { useAnalysisStore } from "@/stores/analysis";
 import { extractionGeometry, stableJson } from "@/utils/extractionIdentity";

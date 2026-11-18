@@ -167,13 +167,13 @@ import { useDisplay } from "vuetify";
 import TimeSeriesPlot from "@/components/dataset/TimeSeriesPlot.vue";
 import SubHeader from "@/components/dataset/SubHeader.vue";
 import LoadingSpinner from "@/components/LoadingSpinner.vue";
-import { toISODate } from "@/store/stats";
+import { toISODate } from "@/utils/stats";
 import {
-  buildReadme,
   DEFAULT_CENTERED_SMOOTHING_WIDTH,
   SMOOTHING_OPTIONS,
   TRANSFORM_OPTIONS,
-} from "@/store/modules/constants";
+} from "@/utils/analysisOptions";
+import { buildReadme } from "@/utils/buildReadme";
 import { useAnalysisStore } from "@/stores/analysis";
 import { useDatasetStore } from "@/stores/dataset";
 import { useTimeSeriesRequest } from "@/composables/useTimeSeriesRequest";
@@ -185,6 +185,7 @@ import Papa from "papaparse";
 
 definePageMeta({ layout: "default", middleware: ["requires-study-area"] });
 
+const { buildId } = useAppConfig();
 const route = useRoute();
 // Capture the route key before navigation changes the reactive route object.
 const draftKey = `${route.params.id}:${route.params.variable}`;
@@ -464,7 +465,7 @@ async function exportData() {
   zip.file("plot.png", await png.blob());
   zip.file("plot.svg", await svg.blob());
   zip.file("study-area.geojson", JSON.stringify(geoJson));
-  zip.file("README.md", buildReadme(requestData));
+  zip.file("README.md", buildReadme(requestData, buildId));
   const content = await zip.generateAsync({ type: "blob" });
   $download.saveAs(
     content,

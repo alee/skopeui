@@ -3,7 +3,10 @@ services:
     build:
       context: app
       dockerfile: Dockerfile
+      args:
+        SKOPE_BUILD_ID: ${SKOPE_BUILD_ID:-development}
     environment:
+      NUXT_PUBLIC_API_BASE: ${NUXT_PUBLIC_API_BASE:-http://localhost:8001}
       NUXT_PUBLIC_CARTO_API_KEY: ${NUXT_PUBLIC_CARTO_API_KEY:-}
       NUXT_PUBLIC_STADIA_API_KEY: ${NUXT_PUBLIC_STADIA_API_KEY:-}
       NUXT_PUBLIC_STADIA_DOMAIN_AUTH: ${NUXT_PUBLIC_STADIA_DOMAIN_AUTH:-false}

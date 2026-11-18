@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createPinia, setActivePinia } from "pinia";
+import { useRuntimeConfig } from "nuxt/app";
 
 import { useDatasetMetadata } from "@/composables/useDatasetMetadata";
 import { useDatasetStore } from "@/stores/dataset";
@@ -20,6 +21,18 @@ describe("loadAllDatasetMetadata", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it("uses the runtime API base including a path prefix", async () => {
+    vi.mocked(useRuntimeConfig).mockReturnValue({
+      public: { apiBase: "https://runtime.example.test/v3/" },
+    } as ReturnType<typeof useRuntimeConfig>);
+    serve(metadataFixture);
+    await useDatasetMetadata().loadAllDatasetMetadata();
+    expect(fetch).toHaveBeenCalledWith(
+      "https://runtime.example.test/v3/metadata",
+      expect.anything(),
+    );
   });
 
   it("stores the datasets of a 1.0.0 response", async () => {

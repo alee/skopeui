@@ -2,7 +2,7 @@ import type { TimeseriesResponse, Series } from "@/types/timeseries";
 import type { AnalysisOptions, DraftTimeseriesRequest } from "@/types/api";
 import { defineStore } from "pinia";
 import { useDatasetStore } from "@/stores/dataset";
-import { formatStats } from "@/store/stats";
+import { formatStats } from "@/utils/stats";
 import { yearOfTimestep } from "@/utils/timeAxis";
 
 export type AnalysisFormDraft = {

@@ -13,6 +13,7 @@
     "types": []
   },
   "include": [
+    "types/config.d.ts",
     "types/api.ts",
     "types/timeseries.ts",
     "utils/timeSeriesApi.ts",

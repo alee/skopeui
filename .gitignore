@@ -203,3 +203,6 @@ tags
 
 # Agent cached context
 .agent
+
+# Generated citation assets
+app/generated/

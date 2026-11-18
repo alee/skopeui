@@ -109,7 +109,7 @@ import "@geoman-io/maplibre-geoman-free/dist/maplibre-geoman.css";
 import AreaReadout from "@/components/dataset/AreaReadout.vue";
 import PanelHeader from "@/components/dataset/PanelHeader.vue";
 import type { ColorbarOptions } from "@/utils/SkopeColorbar";
-import { TILES_ENDPOINT } from "@/store/modules/constants";
+import { createApiEndpoints } from "@/utils/apiEndpoints";
 import { useStudyArea } from "@/composables/useStudyArea";
 import { useAppStore } from "@/stores/app";
 import { useDatasetStore } from "@/stores/dataset";
@@ -134,7 +134,9 @@ const appStore = useAppStore();
 const datasetStore = useDatasetStore();
 const messageStore = useMessagesStore();
 const studyArea = useStudyArea();
-const mapBaseLayers = getBasemaps(useRuntimeConfig().public);
+const runtimeConfig = useRuntimeConfig();
+const endpoints = createApiEndpoints(runtimeConfig.public.apiBase);
+const mapBaseLayers = getBasemaps(runtimeConfig.public);
 const defaultBaseLayer = mapBaseLayers.find(
   (layer) => layer.id === DEFAULT_BASEMAP_ID,
 );
@@ -231,7 +233,7 @@ function getCogBaseUrl(): string | null {
   // dataset's default variable (or its first variable).
   const varId = route.params.variable ?? datasetStore.variable?.id;
   if (!datasetId || !varId) return null;
-  return `${TILES_ENDPOINT}/${datasetId}/${varId}`;
+  return `${endpoints.tiles}/${datasetId}/${varId}`;
 }
 
 function loadGeoJson(event: Event) {

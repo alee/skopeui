@@ -51,9 +51,24 @@ make restart ENVIRONMENT=staging
 make down ENVIRONMENT=staging
 ```
 
-The API URL is compiled into the Nuxt client bundle. Rebuild the image after changing `SKOPE_API_HOST_URL`.
+The API URL is read from Nuxt's `runtimeConfig.public.apiBase` at container
+startup. Compose supplies `NUXT_PUBLIC_API_BASE` using the environment defaults
+above. Both `NUXT_PUBLIC_API_BASE` and the existing Make override
+`SKOPE_API_HOST_URL` are supported; the Make override takes precedence when both
+are supplied. Changing the URL requires recreating the container, without an
+image rebuild. An already-open browser needs a reload to receive the new value.
 
-The GitHub Actions workflow runs the test suite and builds the production image for pushes and pull requests against `main`. It does not check the staging API URL; run `make build ENVIRONMENT=staging` locally before merging an upgrade.
+Make generates `app/generated/citation.txt` and `citation.bib` from `CITATION.cff`
+before tests and builds. These ignored text assets are imported with Vite's
+`?raw` suffix. Run `make citations` to generate them independently and `make clean`
+to remove them. The Git version is passed to Docker as `SKOPE_BUILD_ID` and
+compiled into Nuxt's `appConfig.buildId`; it stays tied to the built image.
+
+API paths are resolved by `app/utils/apiEndpoints.ts` from the configured base.
+Analysis options, export README text, and statistics helpers have their own
+utility files. Application state lives in the Pinia stores under `app/stores/`.
+
+The GitHub Actions workflow runs the test suite and builds the production image for pushes and pull requests against `main`. Run `make config ENVIRONMENT=staging` to check the staging runtime settings and `make build ENVIRONMENT=staging` to validate the deployable image before merging an upgrade.
 
 ## Maintenance
 

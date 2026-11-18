@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createPinia, setActivePinia } from "pinia";
+import { useRuntimeConfig } from "nuxt/app";
 
 import { useExtractionStore } from "@/stores/extraction";
 import { extractionIdentity } from "@/utils/extractionIdentity";
@@ -31,6 +32,30 @@ describe("resolveTimeSeries", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+  });
+
+  it("uses the runtime API base for extraction, polling and analysis", async () => {
+    vi.mocked(useRuntimeConfig).mockReturnValue({
+      public: { apiBase: "https://runtime.example.test/v3/" },
+    } as ReturnType<typeof useRuntimeConfig>);
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(respond(200, { job_id: "runtime-job" }))
+      .mockResolvedValueOnce(
+        respond(200, { status: "SUCCESS", result: RESULT }),
+      )
+      .mockResolvedValueOnce(respond(200, RESULT));
+    vi.stubGlobal("fetch", fetchMock);
+    const store = useExtractionStore();
+    await store.resolveTimeSeries({} as any);
+    await store.resolveTimeSeries({
+      transform: { type: "NoTransform" },
+    } as any);
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      "https://runtime.example.test/v3/timeseries/extract",
+      "https://runtime.example.test/v3/timeseries/status/runtime-job",
+      "https://runtime.example.test/v3/timeseries/analyze",
+    ]);
   });
 
   it.each([404, 410])(

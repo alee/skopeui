@@ -4,7 +4,12 @@ COMPOSE_PROJECT_NAME ?= skope-ui
 API_URL_dev := http://localhost:8001
 API_URL_staging := https://staging-api.openskope.org
 API_URL_prod := https://api.openskope.org
-SKOPE_API_HOST_URL ?= $(API_URL_$(ENVIRONMENT))
+API_BASE_OVERRIDE := $(NUXT_PUBLIC_API_BASE)
+SKOPE_API_HOST_URL ?= $(or $(API_BASE_OVERRIDE),$(API_URL_$(ENVIRONMENT)))
+# Resolve lazily so target-specific deploy/test environments select their own URL.
+override NUXT_PUBLIC_API_BASE = $(SKOPE_API_HOST_URL)
+export NUXT_PUBLIC_API_BASE
+export SKOPE_BUILD_ID ?= $(shell git describe --tags --always --dirty)
 
 COMPOSE = docker compose --project-name $(COMPOSE_PROJECT_NAME) \
 	--project-directory . \
@@ -15,15 +20,13 @@ TEST_COMPOSE = docker compose --project-name $(COMPOSE_PROJECT_NAME)-test \
 	-f base.yml \
 	-f dev.yml
 
-BUILD_CONSTANTS_PATH := app/store/modules/_constants.js
-BUILD_ID := $(shell git describe --tags --always --dirty)
-CITATION_TXT_FILE := _citation.txt
-CITATION_BIB_FILE := _citation.bib
+CITATION_TXT_FILE := app/generated/citation.txt
+CITATION_BIB_FILE := app/generated/citation.bib
 CFFCONVERT_IMAGE := ghcr.io/scicodes/cffconvert:v2026.09
 
 .DEFAULT_GOAL := help
 
-.PHONY: help check-environment citations constants config build buildprod deploy \
+.PHONY: help check-environment citations config build buildprod deploy \
 	deploy-dev deploy-staging deploy-production down restart logs ps lint format \
 	test clean
 
@@ -40,27 +43,17 @@ check-environment:
 	@test -n "$(SKOPE_API_HOST_URL)" || { echo "No API URL configured for $(ENVIRONMENT)" 1>&2; exit 2; }
 
 $(CITATION_TXT_FILE) $(CITATION_BIB_FILE) &: CITATION.cff
+	mkdir -p app/generated
 	rm -f $(CITATION_TXT_FILE) $(CITATION_BIB_FILE)
 	docker run --rm -i $(CFFCONVERT_IMAGE) -i /dev/stdin -f apalike < CITATION.cff > $(CITATION_TXT_FILE)
 	docker run --rm -i $(CFFCONVERT_IMAGE) -i /dev/stdin -f bibtex < CITATION.cff > $(CITATION_BIB_FILE)
 
 citations: $(CITATION_TXT_FILE) $(CITATION_BIB_FILE) ##- Generate citation text used by the application
 
-constants: check-environment citations ##- Generate client constants for ENVIRONMENT
-	@{ \
-		printf 'export const CITATION_TXT = `'; \
-		sed 's/\\/\\\\/g; s/`/\\`/g' $(CITATION_TXT_FILE); \
-		printf '`;\nexport const CITATION_BIB = `'; \
-		sed 's/\\/\\\\/g; s/`/\\`/g' $(CITATION_BIB_FILE); \
-		printf '`;\nexport const API_HOST_URL = "%s";\n' "$(SKOPE_API_HOST_URL)"; \
-		printf 'export const BUILD_ID = "%s";\n' "$(BUILD_ID)"; \
-	} > $(BUILD_CONSTANTS_PATH)
-	@echo "Configured $(ENVIRONMENT) API: $(SKOPE_API_HOST_URL)"
-
-config: constants ##- Render and validate the selected Compose configuration
+config: check-environment ##- Render and validate the selected Compose configuration
 	@$(COMPOSE) config
 
-build: constants ##- Build the selected environment's image
+build: check-environment citations ##- Build the selected environment's image
 	@$(COMPOSE) config --quiet
 	$(COMPOSE) build --pull
 
@@ -101,11 +94,11 @@ format: build ##- Format source files and run ESLint fixes
 	$(COMPOSE) run --rm -v $(PWD):/repo web npm run format
 
 test: override ENVIRONMENT=dev
-test: constants ##- Build an isolated development image and run the test suite
+test: check-environment citations ##- Build an isolated development image and run the test suite
 	@$(TEST_COMPOSE) config --quiet
 	$(TEST_COMPOSE) build web
 	@trap '$(TEST_COMPOSE) down --remove-orphans' EXIT INT TERM; \
 		$(TEST_COMPOSE) run --rm web npm run test
 
 clean: ##- Remove generated local build inputs
-	rm -f $(BUILD_CONSTANTS_PATH) $(CITATION_TXT_FILE) $(CITATION_BIB_FILE)
+	rm -f $(CITATION_TXT_FILE) $(CITATION_BIB_FILE)
