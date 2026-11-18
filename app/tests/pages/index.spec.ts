@@ -28,8 +28,8 @@ vi.mock("@/components/dataset/Search.vue", () => ({
 vi.mock("@/components/dataset/ListItem.vue", () => ({
   default: {
     name: "ListItemStub",
-    props: ["title"],
-    template: '<div data-test="dataset-item">{{ title }}</div>',
+    props: ["dataset"],
+    template: '<div data-test="dataset-item">{{ dataset.title }}</div>',
   },
 }));
 

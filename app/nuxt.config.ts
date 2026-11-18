@@ -14,7 +14,7 @@ export default defineNuxtConfig({
     },
   },
 
-  plugins: ["~/plugins/markdown.ts", "~/plugins/download.client.ts"],
+  plugins: ["~/plugins/download.client.ts"],
 
   modules: [
     "@pinia/nuxt",

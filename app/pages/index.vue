@@ -26,7 +26,7 @@
       <v-col class="ma-0">
         <template v-for="dataset in datasets" :key="dataset.id">
           <v-card class="pa-4 my-3" elevation="0" variant="outlined">
-            <ListItem v-bind="dataset" />
+            <ListItem :dataset="dataset" />
           </v-card>
         </template>
         <LoadingSpinner v-if="loading" />

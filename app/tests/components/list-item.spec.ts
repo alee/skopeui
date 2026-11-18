@@ -1,6 +1,7 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 
+import type { Dataset } from "@/types/metadata";
 import ListItem from "@/components/dataset/ListItem.vue";
 import metadataFixture from "@/tests/fixtures/metadata-1.0.0.json";
 
@@ -12,13 +13,12 @@ vi.mock("@/components/dataset/DatasetMapPreview.client.vue", () => ({
   },
 }));
 
-const paleocar = metadataFixture.datasets[0]!;
+const paleocar = metadataFixture.datasets[0]! as Dataset;
 
-function mountListItem(overrides: Record<string, unknown> = {}) {
+function mountListItem(overrides: Partial<Dataset> = {}) {
   return mount(ListItem, {
-    props: { ...paleocar, ...overrides } as any,
+    props: { dataset: { ...paleocar, ...overrides } },
     global: {
-      mocks: { $md: { render: (text: string) => text } },
       stubs: {
         "client-only": { template: "<div><slot /></div>" },
         NuxtLink: { props: ["to"], template: '<a :href="to"><slot /></a>' },
@@ -33,6 +33,22 @@ function mountListItem(overrides: Record<string, unknown> = {}) {
 }
 
 describe("ListItem", () => {
+  it("renders sanitized descriptions and updates them when the dataset changes", async () => {
+    const wrapper = mountListItem({
+      description:
+        '**Description** <img src="https://example.test/map.png" onerror="alert(1)"><script>alert(1)</script>',
+    });
+    const description = wrapper.get(".list-item-description");
+    expect(description.find("strong").text()).toBe("Description");
+    expect(description.find("img").attributes("onerror")).toBeUndefined();
+    expect(description.find("script").exists()).toBe(false);
+    await wrapper.setProps({
+      dataset: { ...paleocar, description: "<em>Updated</em>" },
+    });
+    expect(description.find("em").text()).toBe("Updated");
+    wrapper.unmount();
+  });
+
   it("shows the region, resolution and time coverage", () => {
     const text = mountListItem().text();
 

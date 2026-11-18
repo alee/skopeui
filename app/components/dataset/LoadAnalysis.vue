@@ -19,7 +19,7 @@
           accept=".json"
           style="display: none"
           @change="handleLoadRequestDataFile"
-        />
+        >
         Load saved analysis
       </v-btn>
     </template>

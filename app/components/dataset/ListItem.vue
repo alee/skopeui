@@ -4,15 +4,15 @@
       <client-only>
         <div class="list-item-map">
           <DatasetMapPreview
-            :title="title"
-            :bbox="bbox"
-            :map-view="map_view"
+            :title="dataset.title"
+            :bbox="dataset.bbox"
+            :map-view="dataset.map_view"
             class="list-item-map-canvas"
           />
           <NuxtLink
             :to="absoluteUrl"
             class="list-item-map-link"
-            :aria-label="`Select ${title}`"
+            :aria-label="`Select ${dataset.title}`"
           />
         </div>
       </client-only>
@@ -22,16 +22,17 @@
         <v-card-title class="ma-0 pa-0">
           <div class="text-h6">
             <NuxtLink :to="absoluteUrl" class="dataset-title">
-              {{ title }}
+              {{ dataset.title }}
             </NuxtLink>
-            <MetadataModal :metadata-id="id" />
+            <MetadataModal :metadata-id="dataset.id" />
           </div>
           <div class="list-item-coverage">
             {{ spatialCoverage }} | {{ temporalCoverage }}
           </div>
         </v-card-title>
         <v-card-text class="list-item-description mt-3 pa-0">
-          <span v-html="$md.render(safeDescription)" />
+          <!-- eslint-disable-next-line vue/no-v-html -- renderMarkdown sanitizes the HTML before this insertion. -->
+          <div v-html="sanitizedDescription" />
         </v-card-text>
         <VariableList :variables="safeVariables" />
         <v-card-text v-if="sourceLink" class="list-item-source">
@@ -50,34 +51,25 @@ import { computed } from "vue";
 import DatasetMapPreview from "@/components/dataset/DatasetMapPreview.client.vue";
 import MetadataModal from "@/components/dataset/MetadataModal.vue";
 import VariableList from "@/components/dataset/VariableList.vue";
-import type { MapView, OverviewLink, Time, Variable } from "@/types/metadata";
+import type { Dataset } from "@/types/metadata";
+import { renderMarkdown } from "@/utils/markdown";
 import { timeCoverageLabel } from "@/utils/timeAxis";
 
-const props = defineProps<{
-  title: string;
-  region_name: string;
-  resolution_label: string;
-  time: Time;
-  links: OverviewLink[];
-  bbox: [number, number, number, number];
-  map_view: MapView | null;
-  description: string;
-  id: string;
-  variables: Variable[];
-}>();
-
-const safeDescription = computed(() => props.description ?? "");
-const safeVariables = computed(() => props.variables ?? []);
+const props = defineProps<{ dataset: Dataset }>();
+const sanitizedDescription = computed(() =>
+  renderMarkdown(props.dataset.description ?? ""),
+);
+const safeVariables = computed(() => props.dataset.variables ?? []);
 
 const spatialCoverage = computed(
-  () => `${props.region_name} at ${props.resolution_label}`,
+  () => `${props.dataset.region_name} at ${props.dataset.resolution_label}`,
 );
-const temporalCoverage = computed(() => timeCoverageLabel(props.time));
+const temporalCoverage = computed(() => timeCoverageLabel(props.dataset.time));
 // STAC's "via" link points at the source the dataset was taken from.
 const sourceLink = computed(() =>
-  props.links.find((link) => link.rel === "via"),
+  props.dataset.links.find((link) => link.rel === "via"),
 );
-const absoluteUrl = computed(() => `/dataset/${props.id}`);
+const absoluteUrl = computed(() => `/dataset/${props.dataset.id}`);
 </script>
 <style scoped>
 /* An underline that becomes a highlight on hover, in the theme's accent. */
