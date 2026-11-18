@@ -27,12 +27,7 @@
     <Search />
     <v-row class="ma-0 pa-0">
       <v-col class="ma-0">
-        <template
-          v-for="dataset in datasets"
-          :key="dataset.absoluteUrl"
-          router
-          exact
-        >
+        <template v-for="dataset in datasets" :key="dataset.id">
           <v-card class="pa-4 my-3" elevation="0" variant="outlined">
             <ListItem v-bind="dataset" />
           </v-card>

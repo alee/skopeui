@@ -38,14 +38,25 @@ export const useMetadataStore = defineStore("metadata", {
     // Set when the API serves a /metadata major version this UI can't read.
     updateRequired: false,
     allDatasetMetadata: [] as Dataset[],
-    filteredDatasets: [] as Dataset[],
     filterCriteria: {
       selectedCategories: [] as string[],
-      yearStart: 1,
-      yearEnd: new Date().getFullYear(),
+      yearStart: 1 as number | string,
+      yearEnd: new Date().getFullYear() as number | string,
       query: "",
     },
   }),
+  getters: {
+    filteredDatasets: (state): Dataset[] => {
+      const { selectedCategories, yearStart, yearEnd, query } =
+        state.filterCriteria;
+      return state.allDatasetMetadata.filter(
+        (dataset) =>
+          matchesYearFilter(Number(yearStart), Number(yearEnd), dataset) &&
+          matchesQueryFilter(query, dataset) &&
+          matchesCategoryFilter(selectedCategories, dataset),
+      );
+    },
+  },
   actions: {
     find(metadataId: string) {
       return (
@@ -59,10 +70,6 @@ export const useMetadataStore = defineStore("metadata", {
     // The API sends datasets already sorted by `order`, then ID.
     setAllDatasetMetadata(datasets: Dataset[]) {
       this.allDatasetMetadata = datasets;
-      this.filteredDatasets = datasets;
-    },
-    setFilteredDatasets(datasets: Dataset[]) {
-      this.filteredDatasets = datasets;
     },
     setFilterCriteria(filterCriteria: {
       selectedCategories: string[];
@@ -74,18 +81,6 @@ export const useMetadataStore = defineStore("metadata", {
         ...filterCriteria,
         query: filterCriteria.query || "",
       };
-      this.filteredDatasets = this.allDatasetMetadata.filter((dataset) => {
-        const selectedCategories = this.filterCriteria.selectedCategories;
-        const minYear = this.filterCriteria.yearStart;
-        const maxYear = this.filterCriteria.yearEnd;
-        const query = this.filterCriteria.query || "";
-
-        return (
-          matchesYearFilter(minYear, maxYear, dataset) &&
-          matchesQueryFilter(query, dataset) &&
-          matchesCategoryFilter(selectedCategories, dataset)
-        );
-      });
     },
   },
 });

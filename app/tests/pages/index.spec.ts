@@ -71,9 +71,7 @@ describe("route /", () => {
 
     datasetStore = createDatasetStore();
     metadataStore = reactive({
-      filteredDatasets: [
-        { ...datasetMetadataFixture, absoluteUrl: "/dataset/paleocar" },
-      ],
+      filteredDatasets: [datasetMetadataFixture],
     });
     metadataActions = {
       loadAllDatasetMetadata: vi.fn(async () => true),
@@ -97,6 +95,25 @@ describe("route /", () => {
     expect(page.text()).toContain("Select a Dataset");
     expect(page.text()).toContain("PaleoCAR");
     expect(metadataActions.loadAllDatasetMetadata).toHaveBeenCalledTimes(1);
+  });
+
+  it("[behavior] retains each dataset card's identity when the catalog order changes", async () => {
+    const other = {
+      ...datasetMetadataFixture,
+      id: "other",
+      title: "Other dataset",
+    };
+    metadataStore.filteredDatasets = [datasetMetadataFixture, other];
+    const wrapper = await mountWithSuspense(IndexPage, {
+      global: { stubs: layoutStubs },
+    });
+    const first = wrapper.findAllComponents({ name: "ListItemStub" })[0].vm;
+    metadataStore.filteredDatasets = [other, datasetMetadataFixture];
+    await nextTick();
+    expect(wrapper.findAllComponents({ name: "ListItemStub" })[1].vm).toBe(
+      first,
+    );
+    wrapper.unmount();
   });
 
   it("[behavior] shows empty state when filter removes all datasets", async () => {
