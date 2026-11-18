@@ -37,6 +37,7 @@ export function useTimeSeriesRequest(mode: "visualize" | "analyze") {
         dataset.setAreaSummary(response.n_cells, response.area);
       } else {
         const original = response.series[0];
+        if (!original) throw new Error("The API returned no time series.");
         dataset.setTimeSeries({
           timeSeries: {
             x: original.timesteps.map(yearOfTimestep),

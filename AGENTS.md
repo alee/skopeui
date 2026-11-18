@@ -15,7 +15,7 @@ SkopeUI is a Nuxt 4 frontend for paleoclimate dataset discovery, study-area sele
 
 ## Validation
 
-Use `make test` for the full Vitest suite. Use `make build ENVIRONMENT=staging` to validate the deployable Nuxt image and `make config ENVIRONMENT=staging` to inspect resolved Compose configuration.
+Use `make test` for full Nuxt type checking and the Vitest suite. Use `make typecheck` for the type check alone; it includes Vue templates and TypeScript tests. Use `make build ENVIRONMENT=staging` to validate the deployable Nuxt image and `make config ENVIRONMENT=staging` to inspect resolved Compose configuration.
 
 ## Git And Decisions
 

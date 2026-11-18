@@ -20,6 +20,6 @@ export function toISODate(year: number) {
 }
 
 export function extractYear(isoDateString: string) {
-  const year = parseInt(isoDateString.split("-")[0]);
+  const year = parseInt(isoDateString.split("-")[0]!);
   return year;
 }

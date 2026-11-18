@@ -7,7 +7,7 @@ import MapLibre from "@/components/dataset/MapLibre.client.vue";
 import metadataFixture from "@/tests/fixtures/metadata-1.0.0.json";
 import { SkopeColorbar } from "@/utils/SkopeColorbar";
 
-const ppt = metadataFixture.datasets[0].variables[0];
+const ppt = metadataFixture.datasets[0]!.variables[0]!;
 
 type MockLayer = {
   id: string;
@@ -25,7 +25,7 @@ type MockStyle = {
 const mocks = vi.hoisted(() => {
   const routeState = {
     name: "dataset-id",
-    params: { id: "paleocar" },
+    params: { id: "paleocar" } as { id: string; variable?: string },
   };
 
   const appStore = {
@@ -57,8 +57,8 @@ const mocks = vi.hoisted(() => {
 
   const geomanInstance = {
     features: {
-      deleteAll: vi.fn(async () => undefined),
-      importGeoJson: vi.fn(async () => undefined),
+      deleteAll: vi.fn(async (): Promise<void> => {}),
+      importGeoJson: vi.fn(async (_collection: unknown): Promise<void> => {}),
     },
     destroy: vi.fn(),
   };
@@ -578,7 +578,7 @@ describe("MapLibre", () => {
     mount(MapLibre, { global: { stubs: uiStubs } });
     await flushPromises();
 
-    const [, options] = vi.mocked(createGeomanInstance).mock.calls[0];
+    const [, options] = vi.mocked(createGeomanInstance).mock.calls[0]!;
     const { draw, edit, helper } = (options as any).controls;
     expect(
       Object.keys(draw).filter((mode) => draw[mode].uiEnabled === false),
@@ -874,13 +874,13 @@ describe("MapLibre", () => {
     const first = mount(MapLibre, { global: { stubs: uiStubs } });
     await flushPromises();
     const firstOptions = vi.mocked(createGeomanInstance).mock
-      .calls[0][1] as any;
+      .calls[0]![1] as any;
     firstOptions.controls.draw.marker.title = "changed by plugin";
     first.unmount();
     const second = mount(MapLibre, { global: { stubs: uiStubs } });
     await flushPromises();
     const secondOptions = vi.mocked(createGeomanInstance).mock
-      .calls[1][1] as any;
+      .calls[1]![1] as any;
     expect(secondOptions.controls.draw.marker.title).toBe(
       "Point: Click the map to place the point.",
     );

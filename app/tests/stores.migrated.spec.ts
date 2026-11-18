@@ -97,7 +97,7 @@ describe("stores", () => {
 
   it("metadata store finds and filters datasets", () => {
     const store = useMetadataStore();
-    const [paleocar] = metadataFixture.datasets as Dataset[];
+    const paleocar = metadataFixture.datasets[0]! as Dataset;
     const lbda: Dataset = {
       ...paleocar,
       id: "lbda",
@@ -106,7 +106,7 @@ describe("stores", () => {
       time: { ...paleocar.time, origin: "0001", end: "2017" },
       variables: [
         {
-          ...paleocar.variables[0],
+          ...paleocar.variables[0]!,
           id: "pmdi",
           title: "PMDI",
           category: "Drought",
@@ -158,9 +158,9 @@ describe("stores", () => {
         },
       ],
     } as any);
-    expect(store.summaryStatistics[0].name).toBe("Original");
-    expect(store.timeseries[0].x).toEqual([416, 417, 590]);
-    expect(store.timeseries[0].y).toEqual([1, null, 3]);
+    expect(store.summaryStatistics[0]!.name).toBe("Original");
+    expect(store.timeseries[0]!.x).toEqual([416, 417, 590]);
+    expect(store.timeseries[0]!.y).toEqual([1, null, 3]);
 
     store.clear();
     expect(store.timeseries).toEqual([]);

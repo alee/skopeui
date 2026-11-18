@@ -33,7 +33,7 @@ it("captures full precision, nulls, and a detached request and response", () => 
       stdev: 0.000000123,
     },
   ]);
-  expect(snapshot.traces[0].y).toEqual([1.23456789012345, null, 3]);
+  expect(snapshot.traces[0]!.y).toEqual([1.23456789012345, null, 3]);
   expect(snapshot.rows[1]).toEqual({ name: "Original", x: 2, y: null });
   expect(snapshot.request.selected_area).toEqual({
     type: "Point",

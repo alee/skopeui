@@ -83,7 +83,7 @@ function year(key: string): number {
     m < 1 ||
     m > 12 ||
     (day ?? 1) < 1 ||
-    (day ?? 1) > days[m - 1] ||
+    (day ?? 1) > days[m - 1]! ||
     (hour ?? 0) > 23 ||
     (minute ?? 0) > 59 ||
     (second ?? 0) > 59 ||
@@ -106,7 +106,7 @@ function singleGeometry(area: TimeseriesRequest["selected_area"]) {
   if (area.type === "FeatureCollection") {
     if (area.features.length !== 1)
       invalid("Select exactly one study feature.");
-    return area.features[0].geometry;
+    return area.features[0]!.geometry;
   }
   return area.type === "Feature" ? area.geometry : area;
 }

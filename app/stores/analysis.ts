@@ -15,7 +15,7 @@ import { stableJson } from "@/utils/extractionIdentity";
 import { yearOfTimestep } from "@/utils/timeAxis";
 
 export type AnalysisFormDraft = {
-  zonalStatistic: string;
+  zonalStatistic: TimeseriesRequest["zonal_statistic"];
   smoothingOption: string;
   smoothingTimeStep: number;
   transformOption: string;

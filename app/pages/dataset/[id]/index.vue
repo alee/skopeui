@@ -64,8 +64,8 @@ import { useDatasetStore } from "@/stores/dataset";
 
 definePageMeta({
   layout: "default",
-  validate: ({ params }: { params: Record<string, string> }) =>
-    /^\w+$/.test(params.id),
+  validate: ({ params }) =>
+    typeof params.id === "string" && /^\w+$/.test(params.id),
 });
 
 const route = useRoute();

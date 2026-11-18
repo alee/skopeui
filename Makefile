@@ -28,7 +28,7 @@ CFFCONVERT_IMAGE := ghcr.io/scicodes/cffconvert:v2026.09
 
 .PHONY: help check-environment citations config build buildprod deploy \
 	deploy-dev deploy-staging deploy-production down restart logs ps lint format \
-	test clean
+	test typecheck clean
 
 help: ##- Show available targets
 	@echo "usage: make [target] [ENVIRONMENT=dev|staging|prod]"
@@ -93,12 +93,14 @@ format: override ENVIRONMENT=dev
 format: build ##- Format source files and run ESLint fixes
 	$(COMPOSE) run --rm -v $(PWD):/repo web npm run format
 
-test: override ENVIRONMENT=dev
-test: check-environment citations ##- Build an isolated development image and run the test suite
+test: ##- Run complete Nuxt type checking and the Vitest suite
+typecheck: ##- Run complete Nuxt type checking, including Vue templates and tests
+test typecheck: override ENVIRONMENT=dev
+test typecheck: check-environment citations
 	@$(TEST_COMPOSE) config --quiet
 	$(TEST_COMPOSE) build web
 	@trap '$(TEST_COMPOSE) down --remove-orphans' EXIT INT TERM; \
-		$(TEST_COMPOSE) run --rm web npm run test
+		$(TEST_COMPOSE) run --rm web npm run $@
 
 clean: ##- Remove generated local build inputs
 	rm -f $(CITATION_TXT_FILE) $(CITATION_BIB_FILE)

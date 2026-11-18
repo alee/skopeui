@@ -12,7 +12,7 @@ vi.mock("@/components/dataset/DatasetMapPreview.client.vue", () => ({
   },
 }));
 
-const [paleocar] = metadataFixture.datasets;
+const paleocar = metadataFixture.datasets[0]!;
 
 function mountListItem(overrides: Record<string, unknown> = {}) {
   return mount(ListItem, {

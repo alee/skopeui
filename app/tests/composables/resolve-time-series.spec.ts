@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createPinia, setActivePinia } from "pinia";
 import { useRuntimeConfig } from "nuxt/app";
+import type { TimeseriesRequest } from "@/types/timeseries";
 
 import { useExtractionStore } from "@/stores/extraction";
 import { extractionIdentity } from "@/utils/extractionIdentity";
@@ -20,7 +21,8 @@ async function resolve(
   const store = useExtractionStore();
   const key = extractionIdentity(data, useDatasetStore().metadata);
   if (existingJobId) store.jobIds[key] = existingJobId;
-  const response = await store.resolveTimeSeries(data);
+  // Recovery tests exercise the store below the composable that validates requests.
+  const response = await store.resolveTimeSeries(data as TimeseriesRequest);
   return { newJobId: store.jobIds[key], response };
 }
 
@@ -74,7 +76,7 @@ describe("resolveTimeSeries", () => {
 
       expect(newJobId).toBe("new-job");
       expect(response).toEqual(RESULT);
-      expect(fetchMock.mock.calls[1][0]).toMatch(/\/timeseries\/extract$/);
+      expect(fetchMock.mock.calls[1]![0]!).toMatch(/\/timeseries\/extract$/);
     },
   );
 
@@ -132,7 +134,7 @@ describe("resolveTimeSeries", () => {
     const { newJobId } = await resolve("old-job", {});
 
     expect(newJobId).toBe("new-job");
-    expect(fetchMock.mock.calls[2][0]).toMatch(/\/timeseries\/extract$/);
+    expect(fetchMock.mock.calls[2]![0]!).toMatch(/\/timeseries\/extract$/);
   });
 
   it.each([404, 410])(
@@ -160,7 +162,7 @@ describe("resolveTimeSeries", () => {
       const result = await resolve("running-job", request);
 
       expect(result).toEqual({ newJobId: "new-job", response: RESULT });
-      const [url, options] = fetchMock.mock.calls[3];
+      const [url, options] = fetchMock.mock.calls[3]!;
       expect(url).toMatch(/\/timeseries\/extract$/);
       expect(JSON.parse(options.body)).toEqual(request);
     },

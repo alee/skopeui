@@ -107,10 +107,10 @@ describe("route /", () => {
     const wrapper = await mountWithSuspense(IndexPage, {
       global: { stubs: layoutStubs },
     });
-    const first = wrapper.findAllComponents({ name: "ListItemStub" })[0].vm;
+    const first = wrapper.findAllComponents({ name: "ListItemStub" })[0]!.vm;
     metadataStore.filteredDatasets = [other, datasetMetadataFixture];
     await nextTick();
-    expect(wrapper.findAllComponents({ name: "ListItemStub" })[1].vm).toBe(
+    expect(wrapper.findAllComponents({ name: "ListItemStub" })[1]!.vm).toBe(
       first,
     );
     wrapper.unmount();

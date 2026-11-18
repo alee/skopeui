@@ -3,6 +3,7 @@ import { createPinia, setActivePinia } from "pinia";
 
 import { useStudyArea } from "@/composables/useStudyArea";
 import { useExtractionStore } from "@/stores/extraction";
+import { timeSeriesResponseFixture } from "@/tests/fixtures/page-fixtures";
 import { useAnalysisStore } from "@/stores/analysis";
 import metadataFixture from "@/tests/fixtures/metadata-1.0.0.json";
 import type { Dataset } from "@/types/metadata";
@@ -26,9 +27,15 @@ function withResults() {
   });
   dataset.setTimeSeriesLoaded();
   analysis.setResponse({
+    ...timeSeriesResponseFixture,
     summary_stats: [{ name: "Original", mean: 1, median: 1, stdev: 0 }],
     series: [
-      { timesteps: ["0103"], values: [1], options: { name: "Original" } },
+      {
+        time_range: { gte: "0103", lte: "0103" },
+        timesteps: ["0103"],
+        values: [1],
+        options: { name: "Original", smoother: { type: "NoSmoother" } },
+      },
     ],
   });
   return { dataset, analysis };

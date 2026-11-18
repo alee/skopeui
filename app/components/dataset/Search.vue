@@ -15,14 +15,14 @@
         >
           <template #chip="{ item: category, props: chipProps }">
             <v-chip v-bind="chipProps" color="primary" label size="small">
-              {{ category.title ?? category }}
+              {{ category }}
             </v-chip>
           </template>
           <template #item="{ item: category, props: itemProps }">
             <v-list-item v-bind="itemProps">
               <template #title>
                 <v-chip color="primary" label size="small">
-                  {{ category.title ?? category }}
+                  {{ category }}
                 </v-chip>
               </template>
             </v-list-item>

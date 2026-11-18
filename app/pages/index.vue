@@ -4,23 +4,20 @@
       <v-col class="ma-0">
         <h1 class="text-h5 d-flex align-center ga-2">
           Select a Dataset
-          <v-tooltip
-            location="bottom"
-            text="View the SKOPE user guide (opens in a new tab)"
+          <v-btn
+            icon
+            size="small"
+            variant="text"
+            href="https://www.openskope.org/skope-users-guide/"
+            target="_blank"
           >
-            <template #activator="{ props }">
-              <v-btn
-                icon
-                size="small"
-                variant="text"
-                href="https://www.openskope.org/skope-users-guide/"
-                target="_blank"
-                v-bind="props"
-              >
-                <v-icon size="20">mdi-help-circle-outline</v-icon>
-              </v-btn>
-            </template>
-          </v-tooltip>
+            <v-icon size="20">mdi-help-circle-outline</v-icon>
+            <v-tooltip
+              activator="parent"
+              location="bottom"
+              text="View the SKOPE user guide (opens in a new tab)"
+            />
+          </v-btn>
         </h1>
       </v-col>
     </v-row>

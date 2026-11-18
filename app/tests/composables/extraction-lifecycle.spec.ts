@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createPinia, setActivePinia } from "pinia";
 import { effectScope } from "vue";
+import type { TimeseriesRequest } from "@/types/timeseries";
 import { flushPromises } from "@vue/test-utils";
 import { useExtractionStore } from "@/stores/extraction";
 import { useDatasetStore } from "@/stores/dataset";
@@ -11,8 +12,11 @@ import metadataFixture from "@/tests/fixtures/metadata-1.0.0.json";
 import { extractionIdentity } from "@/utils/extractionIdentity";
 import { timeSeriesResponseFixture as RESULT } from "@/tests/fixtures/page-fixtures";
 
-const area = { type: "Point", coordinates: [-108.5, 37] };
-const request = {
+const area = {
+  type: "Point" as const,
+  coordinates: [-108.5, 37] as [number, number],
+};
+const request: TimeseriesRequest = {
   dataset_id: "paleocar",
   variable_id: "ppt",
   selected_area: area,
@@ -50,7 +54,7 @@ beforeEach(() => {
     release_id: "r1",
     declaration_digest: "d1",
     default_variable: "ppt",
-    variables: [{ ...metadataFixture.datasets[0].variables[0], id: "ppt" }],
+    variables: [{ ...metadataFixture.datasets[0]!.variables[0]!, id: "ppt" }],
   } as any);
   dataset.setVariable("ppt");
   dataset.setGeoJson(area);
@@ -80,7 +84,7 @@ describe("extraction sharing", () => {
 
   it("analyzes each consumer's options after sharing the extraction", async () => {
     const completed = deferred<Response>();
-    const changed = {
+    const changed: typeof request = {
       ...request,
       zonal_statistic: "median",
       time_range: { gte: "1500", lte: "1600" },
@@ -99,7 +103,7 @@ describe("extraction sharing", () => {
     expect(await first).toEqual(RESULT);
     expect(await second).toEqual(analyzed);
     expect(fetch).toHaveBeenCalledTimes(3);
-    expect(JSON.parse(fetch.mock.calls[2][1].body)).toMatchObject({
+    expect(JSON.parse(fetch.mock.calls[2]![1]!.body)).toMatchObject({
       extraction_id: "job",
       zonal_statistic: "median",
       time_range: changed.time_range,
@@ -154,7 +158,7 @@ describe("extraction sharing", () => {
         ],
       },
     });
-    expect(fetch.mock.calls[2][0]).toMatch(/\/timeseries\/analyze$/);
+    expect(fetch.mock.calls[2]![0]!).toMatch(/\/timeseries\/analyze$/);
   });
 
   it.each(["dataset", "release", "digest", "variable", "geometry"])(
@@ -252,7 +256,9 @@ describe("extraction sharing", () => {
     submitted.resolve(respond({ job_id: "job" }));
     await pending;
     expect(fetch).toHaveBeenCalledTimes(2);
-    expect(JSON.parse(fetch.mock.calls[0][1].body).time_range.gte).toBe("0103");
+    expect(JSON.parse(fetch.mock.calls[0]![1]!.body).time_range.gte).toBe(
+      "0103",
+    );
   });
 });
 
@@ -356,4 +362,16 @@ describe("response ownership", () => {
     expect(useDatasetStore().timeSeriesRequestStatus.status).toBe("success");
     expect(fetch).toHaveBeenCalledTimes(2);
   });
+});
+
+it("reports an empty visualization response without leaving a successful plot state", async () => {
+  vi.spyOn(useExtractionStore(), "resolveTimeSeries").mockResolvedValueOnce({
+    ...RESULT,
+    series: [],
+  });
+  await consumer("visualize").run(request);
+  expect(useDatasetStore().timeSeriesRequestStatus.status).toBe("servererror");
+  expect(useMessagesStore().messages.at(-1)?.message).toBe(
+    "The API returned no time series.",
+  );
 });

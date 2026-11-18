@@ -39,7 +39,7 @@ describe("requires-study-area middleware", () => {
       name: "dataset-id",
       params: { id: "paleocar_v3" },
     });
-    const [message] = useMessagesStore().messages;
+    const message = useMessagesStore().messages[0]!;
     expect(message.message).toMatch(/Select a study area first/);
   });
 

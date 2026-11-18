@@ -61,7 +61,7 @@ export function useRasterPlayback(
     if (isPlaying.value) return pause();
     if (!canPlay.value) return;
     if (requestedStep.value >= availableYears.value.at(-1)!) {
-      requestedStep.value = availableYears.value[0];
+      requestedStep.value = availableYears.value[0]!;
       readyStep.value = null;
     }
     isPlaying.value = true;
@@ -74,7 +74,7 @@ export function useRasterPlayback(
       !availableYears.value.includes(requestedStep.value) &&
       availableYears.value.length
     ) {
-      selectStep(availableYears.value[0]);
+      selectStep(availableYears.value[0]!);
     }
   });
   onScopeDispose(pause);

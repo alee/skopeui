@@ -40,7 +40,7 @@ vi.mock("@/components/dataset/TimeSeriesPlot.vue", () => ({
     name: "TimeSeriesPlotStub",
     template: '<div data-test="timeseries">timeseries</div>',
     emits: ["plot-ready"],
-    mounted() {
+    mounted(this: { $emit: (event: "plot-ready", ready: boolean) => void }) {
       this.$emit("plot-ready", true);
     },
     methods: {
@@ -258,7 +258,7 @@ describe("route /dataset/:id/analyze/:variable", () => {
     wrapper.unmount();
     finishImages({ png: "data:image/png", svg: "data:image/svg+xml" });
     await vi.waitFor(() => expect(saveAs).toHaveBeenCalledTimes(1));
-    const [blob, filename] = saveAs.mock.calls[0];
+    const [blob, filename] = saveAs.mock.calls[0]!;
     expect(filename).toBe("paleocar_tasmax.zip");
     const bytes = await new Promise<ArrayBuffer>((resolve, reject) => {
       const reader = new FileReader();

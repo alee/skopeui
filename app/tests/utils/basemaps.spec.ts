@@ -47,7 +47,7 @@ describe("basemaps", () => {
     const keyed = getBasemaps({ stadiaApiKey: "a&b" }).find(
       (layer) => layer.id === domain.id,
     )!;
-    expect(keyed.tiles[0].endsWith("?api_key=a%26b")).toBe(true);
+    expect(keyed.tiles[0]!.endsWith("?api_key=a%26b")).toBe(true);
     expect(
       getBasemaps({ stadiaDomainAuth: "false" }).some(
         (layer) => layer.id === domain.id,
@@ -66,6 +66,6 @@ describe("basemaps", () => {
         .filter((layer) => layer.layout?.visibility === "visible")
         .map((layer) => layer.id),
     ).toEqual(["basemap-layer-esri-worldterrain"]);
-    expect(style.layers[0].layout?.visibility).toBe("none");
+    expect(style.layers[0]!.layout?.visibility).toBe("none");
   });
 });

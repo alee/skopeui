@@ -14,7 +14,7 @@ export interface AnalysisOptionForm {
   smoothingOption: string;
   smoothingTimeStep: number;
   transformOption: string;
-  temporalRange: number[];
+  temporalRange: [number, number];
   timeRange: {
     lb: { year: number; month: number };
     ub: { year: number; month: number };

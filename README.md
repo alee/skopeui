@@ -21,7 +21,10 @@ The development build uses `http://localhost:8001` for the API by default. Overr
 make deploy-dev SKOPE_API_HOST_URL=http://example.test:8001
 ```
 
-Run the test suite with `make test`. Use `make lint` to run ESLint with automatic fixes, or `make format` to format files and apply ESLint fixes; both commands can modify source files.
+Run the test suite with `make test`; it first runs full Nuxt type checking,
+including Vue scripts, templates, and TypeScript tests. Use `make typecheck` to
+run only the type check. Nuxt manages the application, server, shared, and build
+configuration types through project references in `app/tsconfig.json`. Use `make lint` to run ESLint with automatic fixes, or `make format` to format files and apply ESLint fixes; both commands can modify source files.
 
 After pulling dependency changes, recreate the development container and its anonymous `/code/node_modules` volume so it uses the rebuilt image's dependencies:
 

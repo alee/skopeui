@@ -7,15 +7,26 @@ import { useAnalysisStore } from "@/stores/analysis";
 import { extractionGeometry, stableJson } from "@/utils/extractionIdentity";
 import { timeSpan } from "@/utils/timeAxis";
 
-const LOADING_STATUS = {
+type TimeSeriesRequestStatus = {
+  status:
+    | "loading"
+    | "success"
+    | "timeout"
+    | "no-area"
+    | "badrequest"
+    | "servererror";
+  messages: Array<{ type: "info" | "warning" | "error"; value: string }>;
+};
+
+const LOADING_STATUS: TimeSeriesRequestStatus = {
   status: "loading",
   messages: [{ type: "warning", value: "Loading time series data." }],
 };
-const SUCCESS_STATUS = {
+const SUCCESS_STATUS: TimeSeriesRequestStatus = {
   status: "success",
   messages: [{ type: "info", value: "Success" }],
 };
-const TIMEOUT_STATUS = {
+const TIMEOUT_STATUS: TimeSeriesRequestStatus = {
   status: "timeout",
   messages: [
     {
@@ -24,7 +35,7 @@ const TIMEOUT_STATUS = {
     },
   ],
 };
-const NO_STUDY_AREA_STATUS = {
+const NO_STUDY_AREA_STATUS: TimeSeriesRequestStatus = {
   status: "no-area",
   messages: [
     {
@@ -197,22 +208,20 @@ export const useDatasetStore = defineStore("dataset", {
     setTimeSeriesBadRequest(errorDetails: Array<{ msg: string }>) {
       this.timeSeriesRequestStatus = {
         status: "badrequest",
-        type: "error",
         messages: errorDetails.map((detail) => ({
           type: "error",
           value: detail.msg,
         })),
-      } as any;
+      };
     },
     setTimeSeriesServerError(errorDetails: Array<{ msg: string }>) {
       this.timeSeriesRequestStatus = {
         status: "servererror",
-        type: "error",
         messages: errorDetails.map((detail) => ({
           type: "error",
           value: detail.msg,
         })),
-      } as any;
+      };
     },
     setTimeSeriesNoArea() {
       this.timeSeriesRequestStatus = { ...NO_STUDY_AREA_STATUS };

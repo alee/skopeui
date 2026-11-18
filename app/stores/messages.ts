@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 
 type MessageItem = {
-  type: string;
+  type: "info" | "warning" | "error";
   message: string;
   /** Raised while opening a page, so it belongs to that page. */
   keepOnNavigation?: boolean;

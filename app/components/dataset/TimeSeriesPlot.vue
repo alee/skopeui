@@ -152,6 +152,7 @@ import {
   nextTick,
   defineAsyncComponent,
 } from "vue";
+import type { Annotation, Layout, Config, Shape } from "plotly.js";
 import AreaReadout from "@/components/dataset/AreaReadout.vue";
 import PanelHeader from "@/components/dataset/PanelHeader.vue";
 import { useDatasetStore } from "@/stores/dataset";
@@ -244,7 +245,7 @@ const axis = computed(() =>
 const minStep = computed(() => datasetStore.minYear);
 const maxStep = computed(() => datasetStore.maxYear);
 const variable = computed(() => datasetStore.variable as any);
-const timeSeriesData = computed(() => props.traces);
+const timeSeriesData = computed(() => props.traces ?? []);
 const hasMultipleTimeSeries = computed(
   () => props.traces != null && props.traces.length > 1,
 );
@@ -301,7 +302,7 @@ const temporalLabels = computed(() =>
   resolveTemporalLabels(datasetStore.metadata?.time),
 );
 
-const shapes = computed(() => {
+const shapes = computed<Shape[]>(() => {
   const step = props.stepSelected;
   // A new range can arrive before its first raster. The old map year's
   // marker must not stretch the new timeline while that frame loads.
@@ -341,7 +342,7 @@ const Y_TITLE_MAX_LINE_LENGTH = 44;
 // An annotation, not the axis title: Plotly places an axis title from its tick
 // labels, so it would move with their width. A one-line title sits on the
 // line next to the axis.
-const yAxisTitleAnnotation = computed(() => ({
+const yAxisTitleAnnotation = computed<Partial<Annotation>>(() => ({
   text: wrapPlotTitle(yAxisTitle.value ?? "", Y_TITLE_MAX_LINE_LENGTH),
   font: { size: AXIS_TITLE_SIZE },
   textangle: -90,
@@ -355,7 +356,7 @@ const yAxisTitleAnnotation = computed(() => ({
   showarrow: false,
 }));
 
-const layoutMetadata = computed(() => ({
+const layoutMetadata = computed<Partial<Layout>>(() => ({
   autosize: true,
   margin: { l: MARGIN_LEFT, r: MARGIN_RIGHT, b: 60, t: 10, pad: 2 },
   showlegend: hasMultipleTimeSeries.value,
@@ -381,7 +382,7 @@ const layoutMetadata = computed(() => ({
   annotations: [yAxisTitleAnnotation.value],
 }));
 
-const options = computed(() => ({
+const options = computed<Partial<Config>>(() => ({
   displaylogo: false,
   modeBarButtonsToRemove: ["toImage"],
   responsive: true,
@@ -580,12 +581,13 @@ onBeforeUnmount(() => {
 });
 
 watch(
-  () => [
-    minStep.value,
-    maxStep.value,
-    selectedTemporalRange.value[0],
-    selectedTemporalRange.value[1],
-  ],
+  () =>
+    [
+      minStep.value,
+      maxStep.value,
+      selectedTemporalRange.value[0],
+      selectedTemporalRange.value[1],
+    ] as const,
   ([nextMin, nextMax, selectedMin, selectedMax]) => {
     // Keep the selected range within metadata bounds when datasets/routes change.
     if (

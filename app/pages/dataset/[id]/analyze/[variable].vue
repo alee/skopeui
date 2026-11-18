@@ -180,6 +180,8 @@ import {
   SMOOTHING_OPTIONS,
   TRANSFORM_OPTIONS,
 } from "@/utils/analysisOptions";
+import type { DraftTimeseriesRequest } from "@/types/api";
+import type { TimeseriesRequest } from "@/types/timeseries";
 import { buildReadme } from "@/utils/buildReadme";
 import { useAnalysisStore } from "@/stores/analysis";
 import { useDatasetStore } from "@/stores/dataset";
@@ -230,7 +232,7 @@ const canExport = computed(
 );
 const zScoreMovingIntervalTimeSteps = ref(25);
 const analysisFormValid = ref(true);
-const zonalStatistic = ref("mean");
+const zonalStatistic = ref<TimeseriesRequest["zonal_statistic"]>("mean");
 const yAxisLabel = ref<string | null>(null);
 const smoothingOption = ref("none");
 const smoothingTimeStep = ref(DEFAULT_CENTERED_SMOOTHING_WIDTH);
@@ -250,7 +252,7 @@ const statisticsHeaders = [
   { title: "Mean", align: "end", key: "mean", width: "23%" },
   { title: "Median", align: "end", key: "median", width: "23%" },
   { title: "Std. dev.", align: "end", key: "stdev", width: "23%" },
-];
+] as const;
 const transformOptions = TRANSFORM_OPTIONS;
 const smoothingOptions = SMOOTHING_OPTIONS;
 
@@ -358,8 +360,10 @@ const transformRequestData = computed(() => {
   ) as any;
   return option?.toRequestData(analyzeVue);
 });
-const requestedSeriesOptions = computed(() => {
-  const series: any[] = [
+const requestedSeriesOptions = computed<
+  TimeseriesRequest["requested_series_options"]
+>(() => {
+  const series: TimeseriesRequest["requested_series_options"] = [
     {
       name: hasTransformOption.value ? "Transformed" : "Original",
       smoother: { type: "NoSmoother" },
@@ -498,7 +502,7 @@ async function updateTimeSeries() {
     datasetStore.timeSeriesRequestStatus.status === "loading"
   )
     return;
-  const requestData = {
+  const requestData: DraftTimeseriesRequest = {
     ...datasetStore.defaultApiRequestData,
     zonal_statistic: zonalStatistic.value,
     transform: transformRequestData.value,

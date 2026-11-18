@@ -6,14 +6,15 @@
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import Plotly from "plotly.js/lib/core";
 import Scatter from "plotly.js/lib/scatter";
+import type { Data, Layout, Config } from "plotly.js";
 import { stableJson } from "@/utils/extractionIdentity";
 
 Plotly.register([Scatter]);
 
 const props = defineProps<{
-  data: unknown[];
-  layout?: Record<string, unknown>;
-  options?: Record<string, unknown>;
+  data: Data[];
+  layout?: Partial<Layout>;
+  options?: Partial<Config>;
 }>();
 
 const emit = defineEmits<{
@@ -23,7 +24,7 @@ const emit = defineEmits<{
 
 type PlotContainer = HTMLDivElement & {
   data?: unknown[];
-  layout?: Record<string, unknown>;
+  layout?: Partial<Layout>;
 };
 const container = ref<PlotContainer | null>(null);
 let renderVersion = 0;

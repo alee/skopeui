@@ -185,7 +185,7 @@ describe("TimeSeriesPlot typed timestep", () => {
     store.setMetadata({
       ...metadataFixture.datasets[0],
       time: {
-        ...metadataFixture.datasets[0].time,
+        ...metadataFixture.datasets[0]!.time,
         origin: "1001",
         end: "2000",
       },
@@ -315,7 +315,7 @@ describe("TimeSeriesPlot axis labels", () => {
       ...metadataFixture.datasets[0],
       default_variable: "v",
       variables: [
-        { ...metadataFixture.datasets[0].variables[0], id: "v", title, unit },
+        { ...metadataFixture.datasets[0]!.variables[0]!, id: "v", title, unit },
       ],
     } as any);
     const wrapper = mountPlot();

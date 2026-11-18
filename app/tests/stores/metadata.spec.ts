@@ -4,7 +4,7 @@ import { useMetadataStore } from "@/stores/metadata";
 import metadataFixture from "@/tests/fixtures/metadata-1.0.0.json";
 import type { Dataset } from "@/types/metadata";
 
-const [original] = metadataFixture.datasets as Dataset[];
+const original = metadataFixture.datasets[0]! as Dataset;
 const other: Dataset = {
   ...original,
   id: "other",

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createPinia, setActivePinia } from "pinia";
 import { useDatasetStore } from "@/stores/dataset";
+import { timeSeriesResponseFixture } from "@/tests/fixtures/page-fixtures";
 import { useAnalysisStore } from "@/stores/analysis";
 import { useExtractionStore } from "@/stores/extraction";
 import { useDatasetMetadata } from "@/composables/useDatasetMetadata";
@@ -13,7 +14,7 @@ const other: Dataset = {
   ...paleocar,
   id: "other",
   default_variable: "other-variable",
-  variables: [{ ...paleocar.variables[0], id: "other-variable" }],
+  variables: [{ ...paleocar.variables[0]!, id: "other-variable" }],
   time: { ...paleocar.time, origin: "1500", end: "1900", count: 401 },
 };
 
@@ -34,8 +35,14 @@ function withResults() {
     transform: { type: "NoTransform" },
   });
   analysis.setResponse({
+    ...timeSeriesResponseFixture,
     series: [
-      { timesteps: ["1500"], values: [42], options: { name: "Original" } },
+      {
+        time_range: { gte: "1500", lte: "1500" },
+        timesteps: ["1500"],
+        values: [42],
+        options: { name: "Original", smoother: { type: "NoSmoother" } },
+      },
     ],
     summary_stats: [{ name: "Original", mean: 42, median: 42, stdev: 0 }],
   });
@@ -87,7 +94,7 @@ describe("authoritative selection state", () => {
     );
     dataset.setMetadata({
       ...paleocar,
-      default_variable: variables[0].id,
+      default_variable: variables[0]!.id,
       variables,
     });
     expect(dataset.variable.id).toBeNull();
@@ -274,9 +281,9 @@ describe("initialization and persistence", () => {
       new Response(
         JSON.stringify({ ...metadataFixture, datasets: [paleocar, other] }),
       );
-    replies[1](response());
+    replies[1]!(response());
     await second;
-    replies[0](response());
+    replies[0]!(response());
     await first;
     expect(useDatasetStore().metadata?.id).toBe(other.id);
   });

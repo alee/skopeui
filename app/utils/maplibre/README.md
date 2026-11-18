@@ -27,5 +27,5 @@ mounts them near the viewport and disposes them when offscreen.
 shared GeoJSON normalization. Tile URLs remain under the API gateway, and rendering
 ranges and palettes remain API-owned.
 
-`make test` runs controller TypeScript checks and component integration tests
+`make test` runs full Nuxt type checking and component integration tests
 for raster acknowledgements, cancellation, drawing synchronization, and teardown.

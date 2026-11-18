@@ -5,22 +5,19 @@
         {{ metadata?.title }}
       </span>
       <MetadataModal :metadata-id="metadata?.id" />
-      <v-tooltip
-        location="bottom"
-        text="View the SKOPE user guide (opens in a new tab)"
+      <v-btn
+        icon
+        size="x-small"
+        href="https://www.openskope.org/skope-users-guide/"
+        target="_blank"
       >
-        <template #activator="{ props: tooltipProps }">
-          <v-btn
-            icon
-            size="x-small"
-            href="https://www.openskope.org/skope-users-guide/"
-            target="_blank"
-            v-bind="tooltipProps"
-          >
-            <v-icon>mdi-help-circle-outline</v-icon>
-          </v-btn>
-        </template>
-      </v-tooltip>
+        <v-icon>mdi-help-circle-outline</v-icon>
+        <v-tooltip
+          activator="parent"
+          location="bottom"
+          text="View the SKOPE user guide (opens in a new tab)"
+        />
+      </v-btn>
     </v-col>
     <v-col v-if="selectVariable" cols="12" sm="6" md="3">
       <v-select
