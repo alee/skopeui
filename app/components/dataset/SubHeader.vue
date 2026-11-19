@@ -4,23 +4,20 @@
       <span class="text-h6">
         {{ metadata?.title }}
       </span>
-      <MetadataModal :metadata-id="metadata?.id" />
-      <v-tooltip
-        location="bottom"
-        text="View the SKOPE user guide (opens in a new tab)"
+      <MetadataModal v-if="metadata" :metadata-id="metadata.id" />
+      <v-btn
+        icon
+        size="x-small"
+        href="https://www.openskope.org/skope-users-guide/"
+        target="_blank"
       >
-        <template #activator="{ props }">
-          <v-btn
-            icon
-            size="x-small"
-            href="https://www.openskope.org/skope-users-guide/"
-            target="_blank"
-            v-bind="props"
-          >
-            <v-icon>mdi-help-circle-outline</v-icon>
-          </v-btn>
-        </template>
-      </v-tooltip>
+        <v-icon>mdi-help-circle-outline</v-icon>
+        <v-tooltip
+          activator="parent"
+          location="bottom"
+          text="View the SKOPE user guide (opens in a new tab)"
+        />
+      </v-btn>
     </v-col>
     <v-col v-if="selectVariable" cols="12" sm="6" md="3">
       <v-select
@@ -36,30 +33,28 @@
         variant="outlined"
       />
     </v-col>
-    <v-col cols="auto" class="ml-auto" align="end">
-      <!-- slot for the next nav button -->
+    <v-col cols="12" sm="auto" class="ml-auto sub-header-actions">
+      <!-- Keep workflow actions visible and let them wrap on narrow screens. -->
       <slot />
     </v-col>
   </v-row>
 </template>
 <script setup lang="ts">
-import { ref, computed } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { computed } from "vue";
 import MetadataModal from "@/components/dataset/MetadataModal.vue";
 import { useDatasetStore } from "@/stores/dataset";
 
-const props = defineProps<{ selectVariable?: boolean }>();
+defineProps<{ selectVariable?: boolean }>();
 const route = useRoute();
 const router = useRouter();
 const datasetStore = useDatasetStore();
 
-const showInstructions = ref(false);
-const metadata = computed(() => datasetStore.metadata as any);
+const metadata = computed(() => datasetStore.metadata);
 const variables = computed(() => metadata.value?.variables ?? []);
 
 const variable = computed({
   get() {
-    return datasetStore.variable as any;
+    return datasetStore.variable.id;
   },
   set(variableId: string) {
     datasetStore.setVariable(variableId);
@@ -72,6 +67,13 @@ const variable = computed({
 </script>
 
 <style scoped>
+.sub-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 /* Same height with or without the variable select (a compact field is 40px),
    so the panels below start at the same place on every page. The top margin
    matches the gap below so the header sits centered between the step bar and

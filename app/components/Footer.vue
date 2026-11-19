@@ -44,11 +44,10 @@
 </template>
 
 <script setup lang="ts">
-import { BUILD_ID } from "@/store/modules/_constants";
 import TermsOfUse from "@/components/TermsOfUse.vue";
 import Citation from "@/components/Citation.vue";
 
-const buildId = BUILD_ID;
+const { buildId } = useAppConfig();
 const github = {
   id: "github",
   label: "GitHub",

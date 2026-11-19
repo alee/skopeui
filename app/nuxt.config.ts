@@ -14,11 +14,7 @@ export default defineNuxtConfig({
     },
   },
 
-  plugins: [
-    "~/plugins/markdown.ts",
-    "~/plugins/download.client.ts",
-    "~/plugins/leaflet.client.ts",
-  ],
+  plugins: ["~/plugins/download.client.ts"],
 
   modules: [
     "@pinia/nuxt",
@@ -36,15 +32,10 @@ export default defineNuxtConfig({
         { name: "viewport", content: "width=device-width, initial-scale=1" },
         {
           name: "description",
-          content:
-            "Skope dataset discovery, visualization, and analysis.",
+          content: "Skope dataset discovery, visualization, and analysis.",
         },
       ],
       link: [
-        {
-          rel: "stylesheet",
-          href: "https://fonts.googleapis.com/css?family=Material+Icons",
-        },
         {
           rel: "stylesheet",
           href: "https://fonts.googleapis.com/css?family=Roboto:300,400,500,700",
@@ -53,15 +44,13 @@ export default defineNuxtConfig({
           rel: "stylesheet",
           href: "https://fonts.googleapis.com/css?family=Bitter:400,700",
         },
-        {
-          rel: "stylesheet",
-          href: "https://use.fontawesome.com/releases/v5.11.2/css/all.css",
-        },
       ],
     },
   },
 
-  css: ["leaflet/dist/leaflet.css", "leaflet-draw/dist/leaflet.draw.css"],
+  appConfig: {
+    buildId: process.env.SKOPE_BUILD_ID || "development",
+  },
 
   runtimeConfig: {
     sentry: {
@@ -70,9 +59,11 @@ export default defineNuxtConfig({
         "https://9b9dc2f60562380edeb675c39fe1c896@sentry.comses.net/4",
     },
     public: {
+      apiBase: "http://localhost:8001",
       gtagId: process.env.NUXT_PUBLIC_GTAG_ID || "G-M0NVBT90BT",
-      // Leaflet stays reachable with ?map_engine=leaflet until it's removed.
-      mapEngine: process.env.NUXT_PUBLIC_MAP_ENGINE || "maplibre",
+      cartoApiKey: "",
+      stadiaApiKey: "",
+      stadiaDomainAuth: false,
     },
   },
 
@@ -90,6 +81,8 @@ export default defineNuxtConfig({
   },
 
   vuetify: {
+    // Keep Nuxt useLayout distinct from Vuetify useVLayout.
+    moduleOptions: { prefixComposables: true },
     vuetifyOptions: {
       theme: {
         defaultTheme: "light",

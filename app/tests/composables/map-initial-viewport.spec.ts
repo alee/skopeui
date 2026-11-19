@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  getInitialMapViewport,
-  leafletBounds,
-  leafletStartView,
-} from "@/composables/useMapInitialViewport";
+import { getInitialMapViewport } from "@/composables/useMapInitialViewport";
 
 const bbox: [number, number, number, number] = [-115, 31, -102, 43];
 
@@ -27,24 +23,5 @@ describe("getInitialMapViewport", () => {
       center: { lon: 0, lat: 0 },
       zoom: 2,
     });
-  });
-});
-
-describe("Leaflet adapters", () => {
-  it("swaps a center to Leaflet's latitude-first order", () => {
-    expect(
-      leafletStartView({ center: { lon: -108.5, lat: 37 }, zoom: 4 }),
-    ).toEqual({ center: [37, -108.5], zoom: 4 });
-  });
-
-  it("starts a bbox viewport from the default, to be fitted when ready", () => {
-    expect(leafletStartView({ bbox })).toEqual({ center: [0, 0], zoom: 2 });
-  });
-
-  it("turns a bbox into south-west and north-east corners", () => {
-    expect(leafletBounds(bbox)).toEqual([
-      [31, -115],
-      [43, -102],
-    ]);
   });
 });

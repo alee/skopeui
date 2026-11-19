@@ -2,28 +2,19 @@
   <v-row align-content-start justify-space-around>
     <v-col cols="12" md="4" class="list-item-map-col">
       <client-only>
-        <NuxtLink :to="absoluteUrl">
-          <l-map
-            :min-zoom="2"
-            :zoom="initialCenter.zoom"
-            :center="initialCenter.center"
-            :options="{ zoomSnap: 0.25 }"
-            class="list-item-map"
-            @ready="fitToViewport"
-          >
-            <l-control-scale />
-            <l-tile-layer
-              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}"
-              attribution="Tiles &copy; Esri"
-            />
-            <l-rectangle
-              :bounds="leafletBounds(bbox)"
-              :color="MAP_COLORS.datasetExtent"
-              :weight="2"
-              :fill-opacity="0.12"
-            />
-          </l-map>
-        </NuxtLink>
+        <div class="list-item-map">
+          <DatasetMapPreview
+            :title="dataset.title"
+            :bbox="dataset.bbox"
+            :map-view="dataset.map_view"
+            class="list-item-map-canvas"
+          />
+          <NuxtLink
+            :to="absoluteUrl"
+            class="list-item-map-link"
+            :aria-label="`Select ${dataset.title}`"
+          />
+        </div>
       </client-only>
     </v-col>
     <v-col cols="12" md="8" class="list-item-info-col d-flex">
@@ -31,16 +22,17 @@
         <v-card-title class="ma-0 pa-0">
           <div class="text-h6">
             <NuxtLink :to="absoluteUrl" class="dataset-title">
-              {{ title }}
+              {{ dataset.title }}
             </NuxtLink>
-            <MetadataModal :metadata-id="id" />
+            <MetadataModal :metadata-id="dataset.id" />
           </div>
           <div class="list-item-coverage">
             {{ spatialCoverage }} | {{ temporalCoverage }}
           </div>
         </v-card-title>
         <v-card-text class="list-item-description mt-3 pa-0">
-          <span v-html="$md.render(safeDescription)" />
+          <!-- eslint-disable-next-line vue/no-v-html -- renderMarkdown sanitizes the HTML before this insertion. -->
+          <div v-html="sanitizedDescription" />
         </v-card-text>
         <VariableList :variables="safeVariables" />
         <v-card-text v-if="sourceLink" class="list-item-source">
@@ -55,60 +47,29 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount } from "vue";
-import { BaseMapProvider } from "@/store/modules/constants";
+import { computed } from "vue";
+import DatasetMapPreview from "@/components/dataset/DatasetMapPreview.client.vue";
 import MetadataModal from "@/components/dataset/MetadataModal.vue";
 import VariableList from "@/components/dataset/VariableList.vue";
-import {
-  getInitialMapViewport,
-  leafletBounds,
-  leafletStartView,
-} from "@/composables/useMapInitialViewport";
-import type { MapView, OverviewLink, Time, Variable } from "@/types/metadata";
+import type { Dataset } from "@/types/metadata";
+import { renderMarkdown } from "@/utils/markdown";
 import { timeCoverageLabel } from "@/utils/timeAxis";
-import { MAP_COLORS } from "@/utils/colors";
 
-const props = defineProps<{
-  title: string;
-  region_name: string;
-  resolution_label: string;
-  time: Time;
-  links: OverviewLink[];
-  bbox: [number, number, number, number];
-  map_view: MapView | null;
-  description: string;
-  id: string;
-  variables: Variable[];
-}>();
-
-const viewport = computed(() => getInitialMapViewport(props));
-const initialCenter = computed(() => leafletStartView(viewport.value));
-
-// Leaflet reads its size once, so it would leave the rest gray when the row
-// grows, as when a variable category is expanded.
-let resizeObserver: ResizeObserver | null = null;
-
-function fitToViewport(map: any) {
-  if ("bbox" in viewport.value)
-    map.fitBounds(leafletBounds(viewport.value.bbox));
-  resizeObserver = new ResizeObserver(() => map.invalidateSize());
-  resizeObserver.observe(map.getContainer());
-}
-
-onBeforeUnmount(() => resizeObserver?.disconnect());
-
-const safeDescription = computed(() => props.description ?? "");
-const safeVariables = computed(() => props.variables ?? []);
+const props = defineProps<{ dataset: Dataset }>();
+const sanitizedDescription = computed(() =>
+  renderMarkdown(props.dataset.description ?? ""),
+);
+const safeVariables = computed(() => props.dataset.variables ?? []);
 
 const spatialCoverage = computed(
-  () => `${props.region_name} at ${props.resolution_label}`,
+  () => `${props.dataset.region_name} at ${props.dataset.resolution_label}`,
 );
-const temporalCoverage = computed(() => timeCoverageLabel(props.time));
+const temporalCoverage = computed(() => timeCoverageLabel(props.dataset.time));
 // STAC's "via" link points at the source the dataset was taken from.
 const sourceLink = computed(() =>
-  props.links.find((link) => link.rel === "via"),
+  props.dataset.links.find((link) => link.rel === "via"),
 );
-const absoluteUrl = computed(() => `/dataset/${props.id}`);
+const absoluteUrl = computed(() => `/dataset/${props.dataset.id}`);
 </script>
 <style scoped>
 /* An underline that becomes a highlight on hover, in the theme's accent. */
@@ -191,5 +152,20 @@ const absoluteUrl = computed(() => `/dataset/${props.id}`);
   z-index: 1;
   min-height: 300px;
   cursor: pointer;
+}
+
+.list-item-map-canvas {
+  position: absolute;
+  inset: 0;
+}
+/* MapLibre's attribution controls sit above this link at z-index 2. */
+.list-item-map-link {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+.list-item-map-link:focus-visible {
+  outline: 3px solid rgb(var(--v-theme-primary));
+  outline-offset: -3px;
 }
 </style>

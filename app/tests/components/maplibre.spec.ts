@@ -1,13 +1,13 @@
 import { flushPromises, mount } from "@vue/test-utils";
-import { defineComponent, h, nextTick } from "vue";
+import { defineComponent, h, nextTick, reactive } from "vue";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createGeomanInstance } from "@geoman-io/maplibre-geoman-free";
 import MapLibre from "@/components/dataset/MapLibre.client.vue";
 import metadataFixture from "@/tests/fixtures/metadata-1.0.0.json";
-import { SkopeColorbar } from "@/utils/SkopeColorbar";
+import { SkopeColorbar } from "@/utils/skopeColorbar";
 
-const ppt = metadataFixture.datasets[0].variables[0];
+const ppt = metadataFixture.datasets[0]!.variables[0]!;
 
 type MockLayer = {
   id: string;
@@ -25,7 +25,7 @@ type MockStyle = {
 const mocks = vi.hoisted(() => {
   const routeState = {
     name: "dataset-id",
-    params: { id: "paleocar" },
+    params: { id: "paleocar" } as { id: string; variable?: string },
   };
 
   const appStore = {
@@ -49,16 +49,16 @@ const mocks = vi.hoisted(() => {
     geoJson: null,
   } as any;
 
-  const legacyActions = {
-    initializeDatasetGeoJson: vi.fn(),
-    saveGeoJson: vi.fn(),
-    clearGeoJson: vi.fn(),
+  const studyArea = {
+    restore: vi.fn(),
+    save: vi.fn(),
+    clear: vi.fn(),
   };
 
   const geomanInstance = {
     features: {
-      deleteAll: vi.fn(async () => undefined),
-      importGeoJson: vi.fn(async () => undefined),
+      deleteAll: vi.fn(async (): Promise<void> => {}),
+      importGeoJson: vi.fn(async (_collection: unknown): Promise<void> => {}),
     },
     destroy: vi.fn(),
   };
@@ -155,16 +155,12 @@ const mocks = vi.hoisted(() => {
     routeState,
     appStore,
     datasetStore,
-    legacyActions,
+    studyArea,
     geomanInstance,
     mapInstances,
     MockMap,
   };
 });
-
-vi.mock("vue-router", () => ({
-  useRoute: () => mocks.routeState,
-}));
 
 vi.mock("@/stores/app", () => ({
   useAppStore: () => mocks.appStore,
@@ -179,30 +175,11 @@ vi.mock("@/stores/messages", () => ({
     error: vi.fn(),
     info: vi.fn(),
     dismiss: vi.fn(),
-    clearMessages: vi.fn(),
   }),
 }));
 
-vi.mock("@/composables/useLegacyStoreActions", () => ({
-  useLegacyStoreActions: () => mocks.legacyActions,
-}));
-
-vi.mock("@/store/modules/constants", () => ({
-  TILES_ENDPOINT: "https://test.example.com/tiles",
-  DEFAULT_BASEMAP: "Esri.WorldTopoMap",
-  LEAFLET_PROVIDERS: [
-    {
-      name: "CartoDB.Positron",
-      url: "https://{s}.example.com/light/{z}/{x}/{y}{r}.png",
-      attribution: "Carto",
-      subdomains: "ab",
-    },
-    {
-      name: "Esri.WorldTopoMap",
-      url: "https://example.com/topo/{z}/{y}/{x}",
-      attribution: "Esri",
-    },
-  ],
+vi.mock("@/composables/useStudyArea", () => ({
+  useStudyArea: () => mocks.studyArea,
 }));
 
 vi.mock("maplibre-gl", () => ({
@@ -231,6 +208,7 @@ const VListItemStub = defineComponent({
 });
 
 const uiStubs = {
+  "v-progress-circular": true,
   "v-card": { template: "<div><slot /></div>" },
   "v-toolbar": { template: "<div><slot /></div>" },
   "v-row": { template: "<div><slot /></div>" },
@@ -248,18 +226,45 @@ const uiStubs = {
 
 describe("MapLibre", () => {
   beforeEach(() => {
+    vi.stubGlobal("useRoute", () => mocks.routeState);
+    vi.stubGlobal("useRuntimeConfig", () => ({
+      public: {
+        apiBase: "https://test.example.com",
+        cartoApiKey: "test-carto-key",
+      },
+    }));
     mocks.routeState.name = "dataset-id";
     mocks.routeState.params = { id: "paleocar" };
     mocks.datasetStore.geoJson = null;
     mocks.datasetStore.metadata = { id: "paleocar", variables: [] } as any;
-    mocks.datasetStore.variable = null;
+    mocks.datasetStore.variable = ppt;
 
     mocks.mapInstances.length = 0;
     vi.clearAllMocks();
   });
 
   afterEach(() => {
+    vi.unstubAllGlobals();
     vi.clearAllMocks();
+  });
+
+  it("[behavior] discards drawing tools that finish loading after navigation", async () => {
+    let finishLoading!: (value: any) => void;
+    vi.mocked(createGeomanInstance).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishLoading = resolve;
+        }),
+    );
+    const wrapper = mount(MapLibre, { global: { stubs: uiStubs } });
+    await flushPromises();
+    expect(createGeomanInstance).toHaveBeenCalled();
+    wrapper.unmount();
+    finishLoading(mocks.geomanInstance);
+    await flushPromises();
+    expect(mocks.geomanInstance.destroy).toHaveBeenCalledOnce();
+    expect(mocks.geomanInstance.features.deleteAll).not.toHaveBeenCalled();
+    expect(wrapper.emitted("mapReady")).toBeUndefined();
   });
 
   it.each(["dataset-id", "dataset-id-visualize-variable"])(
@@ -570,7 +575,7 @@ describe("MapLibre", () => {
     mount(MapLibre, { global: { stubs: uiStubs } });
     await flushPromises();
 
-    const [, options] = vi.mocked(createGeomanInstance).mock.calls[0];
+    const [, options] = vi.mocked(createGeomanInstance).mock.calls[0]!;
     const { draw, edit, helper } = (options as any).controls;
     expect(
       Object.keys(draw).filter((mode) => draw[mode].uiEnabled === false),
@@ -692,5 +697,261 @@ describe("MapLibre", () => {
       ],
       expect.objectContaining({ maxZoom: 10 }),
     );
+  });
+  it("[behavior] replaces a pending frame without acknowledging its stale render callbacks", async () => {
+    mocks.routeState.name = "dataset-id-visualize-variable";
+    mocks.routeState.params = { id: "paleocar", variable: "ppt_annual" };
+    const wrapper = mount(MapLibre, {
+      global: { stubs: uiStubs },
+      props: { step: 103 },
+    });
+    await flushPromises();
+    const map = mocks.mapInstances[0];
+    const render = () =>
+      [...(map.eventHandlers.render || [])].forEach((handler: Function) =>
+        handler(),
+      );
+    render();
+    render();
+    await wrapper.setProps({ step: 104 });
+    const stale = [...map.eventHandlers.render];
+    await wrapper.setProps({ step: 105 });
+    stale.forEach((handler) => handler());
+    expect(wrapper.emitted("stepReady")).toEqual([[103]]);
+    render();
+    render();
+    expect(wrapper.emitted("stepReady")).toEqual([[103], [105]]);
+    const rasters = Object.values(map.getStyle().sources).filter(
+      (source: any) => source.tiles?.[0]?.includes("/tiles/paleocar/"),
+    ) as any[];
+    expect(rasters).toHaveLength(1);
+    expect(rasters[0].tiles[0]).toContain("/0105/");
+    wrapper.unmount();
+  });
+
+  it("[behavior] ignores unrelated source errors while waiting for a raster", async () => {
+    mocks.routeState.name = "dataset-id-visualize-variable";
+    mocks.routeState.params = { id: "paleocar", variable: "ppt_annual" };
+    const wrapper = mount(MapLibre, {
+      global: { stubs: uiStubs },
+      props: { step: 103 },
+    });
+    await flushPromises();
+    const map = mocks.mapInstances[0];
+    map.eventHandlers.error.forEach((handler: Function) =>
+      handler({ sourceId: "basemap-source-esri-worldtopomap" }),
+    );
+    expect(wrapper.emitted("stepError")).toBeUndefined();
+    for (let i = 0; i < 2; i++)
+      [...map.eventHandlers.render].forEach((handler: Function) => handler());
+    expect(wrapper.emitted("stepReady")).toEqual([[103]]);
+    wrapper.unmount();
+  });
+
+  it("[behavior] detaches rendering and drawing handlers before destroying the map", async () => {
+    mocks.datasetStore.variable = ppt;
+    const wrapper = mount(MapLibre, { global: { stubs: uiStubs } });
+    await flushPromises();
+    const map = mocks.mapInstances[0];
+    const staleRender = [...map.eventHandlers.render];
+    const staleCreate = [...map.eventHandlers["gm:create"]];
+    const staleRemove = [...map.eventHandlers["gm:remove"]];
+    const colorbar = map.addControl.mock.calls
+      .map(([control]: any[]) => control)
+      .find((control: any) => control instanceof SkopeColorbar);
+    wrapper.unmount();
+    staleRender.forEach((handler) => handler());
+    staleCreate.forEach((handler) =>
+      handler({
+        feature: { getGeoJson: () => ({ type: "Point", coordinates: [0, 0] }) },
+      }),
+    );
+    staleRemove.forEach((handler) => handler());
+    expect(wrapper.emitted("stepReady")).toBeUndefined();
+    expect(mocks.studyArea.save).not.toHaveBeenCalled();
+    expect(mocks.studyArea.clear).not.toHaveBeenCalled();
+    expect(map.eventHandlers.render).toEqual([]);
+    expect(map.eventHandlers.error).toEqual([]);
+    expect(map.eventHandlers["gm:create"]).toEqual([]);
+    expect(map.eventHandlers.load).toEqual([]);
+    expect(map.removeControl).toHaveBeenCalledWith(colorbar);
+    expect(mocks.geomanInstance.destroy).toHaveBeenCalledOnce();
+    expect(map.remove).toHaveBeenCalledOnce();
+  });
+
+  it("[behavior] stops drawing initialization if navigation occurs during geometry synchronization", async () => {
+    let finishDelete!: () => void;
+    mocks.geomanInstance.features.deleteAll.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishDelete = resolve;
+        }),
+    );
+    const wrapper = mount(MapLibre, { global: { stubs: uiStubs } });
+    await flushPromises();
+    wrapper.unmount();
+    finishDelete();
+    await flushPromises();
+    expect(mocks.geomanInstance.features.importGeoJson).not.toHaveBeenCalled();
+    expect(mocks.geomanInstance.destroy).toHaveBeenCalledOnce();
+    expect(wrapper.emitted("mapReady")).toBeUndefined();
+  });
+
+  it("[behavior] synchronizes stored geometry without saving Geoman's programmatic events", async () => {
+    const previousStore = mocks.datasetStore;
+    const liveStore = reactive({ ...previousStore, geoJson: null });
+    mocks.datasetStore = liveStore;
+    const wrapper = mount(MapLibre, { global: { stubs: uiStubs } });
+    try {
+      await flushPromises();
+      const map = mocks.mapInstances[0];
+      let finishDelete!: () => void;
+      mocks.geomanInstance.features.deleteAll.mockImplementationOnce(() => {
+        map.eventHandlers["gm:remove"].forEach((handler: Function) =>
+          handler(),
+        );
+        return new Promise<void>((resolve) => {
+          finishDelete = resolve;
+        });
+      });
+      const point = {
+        type: "Feature",
+        properties: {},
+        geometry: { type: "Point", coordinates: [-108, 37] },
+      };
+      mocks.geomanInstance.features.importGeoJson.mockImplementationOnce(
+        async (collection: any) => {
+          collection.features[0].properties.pluginValue = "transient";
+          map.eventHandlers["gm:create"].forEach((handler: Function) =>
+            handler({ feature: { getGeoJson: () => point } }),
+          );
+        },
+      );
+      liveStore.geoJson = point;
+      await flushPromises();
+      finishDelete();
+      await flushPromises();
+      expect(mocks.studyArea.save).not.toHaveBeenCalled();
+      expect(mocks.studyArea.clear).not.toHaveBeenCalled();
+      expect(liveStore.geoJson).toEqual(point);
+      expect(point.properties).toEqual({});
+      expect(mocks.geomanInstance.features.importGeoJson).toHaveBeenCalledWith({
+        type: "FeatureCollection",
+        features: [{ ...point, properties: { pluginValue: "transient" } }],
+      });
+      map.eventHandlers["gm:create"].forEach((handler: Function) =>
+        handler({ feature: { getGeoJson: () => point } }),
+      );
+      expect(mocks.studyArea.save).toHaveBeenCalledWith(point);
+    } finally {
+      wrapper.unmount();
+      mocks.datasetStore = previousStore;
+    }
+  });
+
+  it("[behavior] cancels a scheduled geometry zoom when the map is removed", async () => {
+    vi.useFakeTimers();
+    const wrapper = mount(MapLibre, { global: { stubs: uiStubs } });
+    try {
+      await flushPromises();
+      const map = mocks.mapInstances[0];
+      map.fitBounds.mockClear();
+      map.eventHandlers["gm:globalzoom_to_featuresmodetoggled"][0]({
+        enabled: true,
+      });
+      wrapper.unmount();
+      await vi.runAllTimersAsync();
+      expect(map.fitBounds).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("[behavior] gives each map its own drawing configuration", async () => {
+    const first = mount(MapLibre, { global: { stubs: uiStubs } });
+    await flushPromises();
+    const firstOptions = vi.mocked(createGeomanInstance).mock
+      .calls[0]![1] as any;
+    firstOptions.controls.draw.marker.title = "changed by plugin";
+    first.unmount();
+    const second = mount(MapLibre, { global: { stubs: uiStubs } });
+    await flushPromises();
+    const secondOptions = vi.mocked(createGeomanInstance).mock
+      .calls[1]![1] as any;
+    expect(secondOptions.controls.draw.marker.title).toBe(
+      "Point: Click the map to place the point.",
+    );
+    expect(secondOptions.layerStyles).not.toBe(firstOptions.layerStyles);
+    second.unmount();
+  });
+
+  it("[behavior] replaces the raster when its variable changes without acknowledging the old frame", async () => {
+    const previousRoute = mocks.routeState;
+    const route = reactive({
+      name: "dataset-id-visualize-variable",
+      params: { id: "paleocar", variable: "ppt_annual" },
+    });
+    mocks.routeState = route;
+    const wrapper = mount(MapLibre, {
+      global: { stubs: uiStubs },
+      props: { step: 103 },
+    });
+    try {
+      await flushPromises();
+      const map = mocks.mapInstances[0];
+      const staleRender = [...map.eventHandlers.render];
+      route.params.variable = "tasmax";
+      await flushPromises();
+      staleRender.forEach((handler) => handler());
+      expect(wrapper.emitted("stepReady")).toBeUndefined();
+      const sources = Object.values(map.getStyle().sources).filter(
+        (source: any) => source.tiles?.[0]?.includes("/tiles/paleocar/"),
+      ) as any[];
+      expect(sources).toHaveLength(1);
+      expect(sources[0].tiles[0]).toBe(
+        "https://test.example.com/tiles/paleocar/tasmax/0103/{z}/{x}/{y}",
+      );
+      for (let i = 0; i < 2; i++)
+        [...map.eventHandlers.render].forEach((handler: Function) => handler());
+      expect(wrapper.emitted("stepReady")).toEqual([[103]]);
+    } finally {
+      wrapper.unmount();
+      mocks.routeState = previousRoute;
+    }
+  });
+  it("[behavior] retains a newer store selection while an earlier drawing import is pending", async () => {
+    const previousStore = mocks.datasetStore;
+    const liveStore = reactive({ ...previousStore, geoJson: null });
+    mocks.datasetStore = liveStore;
+    const wrapper = mount(MapLibre, { global: { stubs: uiStubs } });
+    try {
+      await flushPromises();
+      let finishDelete!: () => void;
+      mocks.geomanInstance.features.deleteAll.mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            finishDelete = resolve;
+          }),
+      );
+      const first = { type: "Point", coordinates: [1, 2] };
+      const latest = { type: "Point", coordinates: [3, 4] };
+      liveStore.geoJson = first;
+      await flushPromises();
+      liveStore.geoJson = latest;
+      await flushPromises();
+      finishDelete();
+      await flushPromises();
+      expect(
+        mocks.geomanInstance.features.importGeoJson,
+      ).toHaveBeenLastCalledWith({
+        type: "FeatureCollection",
+        features: [{ type: "Feature", properties: {}, geometry: latest }],
+      });
+      expect(mocks.studyArea.save).not.toHaveBeenCalled();
+      expect(mocks.studyArea.clear).not.toHaveBeenCalled();
+    } finally {
+      wrapper.unmount();
+      mocks.datasetStore = previousStore;
+    }
   });
 });

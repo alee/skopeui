@@ -1,9 +1,5 @@
 <template>
-  <v-card
-    variant="outlined"
-    class="time-series-card"
-    :style="{ '--plot-center-offset': `${(MARGIN_LEFT - MARGIN_RIGHT) / 2}px` }"
-  >
+  <v-card variant="outlined" class="time-series-card">
     <PanelHeader>
       <AreaReadout v-if="showArea" />
       <v-form
@@ -100,10 +96,7 @@
       </v-text-field>
     </PanelHeader>
 
-    <div
-      class="time-series-plot-shell"
-      :class="{ 'time-series-plot-shell--last': !showStepControls }"
-    >
+    <div class="time-series-plot-shell">
       <div
         v-if="timeSeriesRequestStatus.status === 'loading'"
         class="timeseries-loading-overlay"
@@ -135,98 +128,16 @@
           </v-alert>
         </template>
         <Plotly
-          ref="plotlyRef"
           class="time-series"
           :data="timeSeriesData"
           :layout="layoutMetadata"
           :options="options"
+          :shapes="shapes"
+          @api-ready="setPlotImageApi"
           @click="updatePlotlyStep"
+          @ready="emit('plot-ready', $event)"
         />
       </client-only>
-    </div>
-
-    <!-- Playback stays centered on the plotting area. -->
-    <div v-if="showStepControls" class="time-series-step-controls">
-      <div class="time-series-transport">
-        <v-tooltip
-          location="top"
-          text="Go to the first timestep of the defined temporal range"
-        >
-          <template #activator="{ props }">
-            <v-btn
-              icon
-              size="small"
-              v-bind="props"
-              color="accent"
-              @click="gotoFirstStep"
-            >
-              <v-icon>mdi-skip-previous</v-icon>
-            </v-btn>
-          </template>
-        </v-tooltip>
-        <v-tooltip location="top" text="Previous timestep">
-          <template #activator="{ props }">
-            <v-btn
-              icon
-              size="small"
-              v-bind="props"
-              color="accent"
-              @click="previousStep"
-            >
-              <v-icon>mdi-chevron-left</v-icon>
-            </v-btn>
-          </template>
-        </v-tooltip>
-        <v-btn
-          v-if="showPlaybackControl"
-          icon
-          size="small"
-          color="accent"
-          :disabled="!canPlay"
-          :aria-label="isPlaying ? 'Pause playback' : 'Play years'"
-          :title="isPlaying ? 'Pause playback' : 'Play years'"
-          :aria-pressed="!!isPlaying"
-          data-test="playback"
-          @click="emit('toggle-playback')"
-        >
-          <v-progress-circular
-            v-if="isStepLoading"
-            indeterminate
-            size="18"
-            width="2"
-          />
-          <v-icon v-else>{{ isPlaying ? "mdi-pause" : "mdi-play" }}</v-icon>
-        </v-btn>
-        <v-tooltip location="top" text="Next timestep">
-          <template #activator="{ props }">
-            <v-btn
-              icon
-              size="small"
-              v-bind="props"
-              color="accent"
-              @click="nextStep"
-            >
-              <v-icon>mdi-chevron-right</v-icon>
-            </v-btn>
-          </template>
-        </v-tooltip>
-        <v-tooltip
-          location="top"
-          text="Go to the last timestep of the defined temporal range"
-        >
-          <template #activator="{ props }">
-            <v-btn
-              icon
-              size="small"
-              v-bind="props"
-              color="accent"
-              @click="gotoLastStep"
-            >
-              <v-icon>mdi-skip-next</v-icon>
-            </v-btn>
-          </template>
-        </v-tooltip>
-      </div>
     </div>
   </v-card>
 </template>
@@ -238,9 +149,13 @@ import {
   watch,
   onMounted,
   onUnmounted,
+  onBeforeUnmount,
   nextTick,
   defineAsyncComponent,
 } from "vue";
+import type { VForm } from "vuetify/components";
+import type { PlotImageApi, ExportTrace } from "@/types/plot";
+import type { Annotation, Layout, Config, Shape } from "plotly.js";
 import AreaReadout from "@/components/dataset/AreaReadout.vue";
 import PanelHeader from "@/components/dataset/PanelHeader.vue";
 import { useDatasetStore } from "@/stores/dataset";
@@ -249,16 +164,12 @@ import { PLOT_COLORS } from "@/utils/colors";
 import {
   axisYears,
   resolveTemporalLabels,
-  stepAlongAxis,
   stepFromText,
 } from "@/utils/timeAxis";
 
 const props = defineProps<{
   stepSelected?: number | null;
   showStepControls?: boolean;
-  showPlaybackControl?: boolean;
-  isPlaying?: boolean;
-  canPlay?: boolean;
   isStepLoading?: boolean;
   /** Show the API's area and cell count (analyze; visualize shows it on the map). */
   showArea?: boolean;
@@ -269,7 +180,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: "step-selected", step: number): void;
   (e: "selected-temporal-range", range: [number, number]): void;
-  (e: "toggle-playback" | "pause-playback"): void;
+  (e: "pause-playback"): void;
+  (e: "plot-ready", ready: boolean): void;
 }>();
 
 // Lazy-load PlotlyClient to avoid SSR issues
@@ -284,8 +196,11 @@ const localTemporalRangeMin = ref(1);
 const localTemporalRangeMax = ref(new Date().getFullYear());
 const isTemporalRangeEditable = ref(false);
 const isTemporalRangeValid = ref(false);
-const temporalRangeForm = ref<any>(null);
-const plotlyRef = ref<any>(null);
+const temporalRangeForm = ref<InstanceType<typeof VForm> | null>(null);
+let plotImageApi: PlotImageApi | null = null;
+function setPlotImageApi(api: PlotImageApi | null) {
+  plotImageApi = api;
+}
 
 const PROGRESSIVE_MESSAGES = [
   { delay: 8_000, text: "Still working..." },
@@ -335,13 +250,10 @@ const axis = computed(() =>
 );
 const minStep = computed(() => datasetStore.minYear);
 const maxStep = computed(() => datasetStore.maxYear);
-const variable = computed(() => datasetStore.variable as any);
-const timeSeriesData = computed(() => props.traces);
+const variable = computed(() => datasetStore.variable);
+const timeSeriesData = computed(() => props.traces ?? []);
 const hasMultipleTimeSeries = computed(
   () => props.traces != null && props.traces.length > 1,
-);
-const hasTimeSeries = computed(
-  () => props.traces != null && props.traces[0]?.x?.length > 0,
 );
 const canHandleTimeSeriesRequest = computed(
   () => datasetStore.canHandleTimeSeriesRequest,
@@ -393,7 +305,7 @@ const temporalLabels = computed(() =>
   resolveTemporalLabels(datasetStore.metadata?.time),
 );
 
-const shapes = computed(() => {
+const shapes = computed<Shape[]>(() => {
   const step = props.stepSelected;
   // A new range can arrive before its first raster. The old map year's
   // marker must not stretch the new timeline while that frame loads.
@@ -433,7 +345,7 @@ const Y_TITLE_MAX_LINE_LENGTH = 44;
 // An annotation, not the axis title: Plotly places an axis title from its tick
 // labels, so it would move with their width. A one-line title sits on the
 // line next to the axis.
-const yAxisTitleAnnotation = computed(() => ({
+const yAxisTitleAnnotation = computed<Partial<Annotation>>(() => ({
   text: wrapPlotTitle(yAxisTitle.value ?? "", Y_TITLE_MAX_LINE_LENGTH),
   font: { size: AXIS_TITLE_SIZE },
   textangle: -90,
@@ -447,7 +359,7 @@ const yAxisTitleAnnotation = computed(() => ({
   showarrow: false,
 }));
 
-const layoutMetadata = computed(() => ({
+const layoutMetadata = computed<Partial<Layout>>(() => ({
   autosize: true,
   margin: { l: MARGIN_LEFT, r: MARGIN_RIGHT, b: 60, t: 10, pad: 2 },
   showlegend: hasMultipleTimeSeries.value,
@@ -469,36 +381,13 @@ const layoutMetadata = computed(() => ({
   font: { size: 14 },
   // In trace order: the first series, then Smoothed.
   colorway: [PLOT_COLORS.main, PLOT_COLORS.plotAccent],
-  shapes: shapes.value,
   annotations: [yAxisTitleAnnotation.value],
 }));
 
-const options = computed(() => ({
+const options = computed<Partial<Config>>(() => ({
   displaylogo: false,
   modeBarButtonsToRemove: ["toImage"],
-  responsive: true,
 }));
-
-function getPlotlyApi() {
-  const plotlyInstance = plotlyRef.value as any;
-  if (!plotlyInstance) {
-    return null;
-  }
-
-  if (typeof plotlyInstance.toImage === "function") {
-    return plotlyInstance;
-  }
-
-  if (plotlyInstance.$?.exposed) {
-    return plotlyInstance.$.exposed;
-  }
-
-  if (plotlyInstance.$?.subTree?.component?.exposed) {
-    return plotlyInstance.$.subTree.component.exposed;
-  }
-
-  return null;
-}
 
 // Methods
 function enableTemporalRangeEdit() {
@@ -554,34 +443,6 @@ function resetTemporalRange() {
   localTemporalRangeMin.value = datasetStore.minYear;
   localTemporalRangeMax.value = datasetStore.maxYear;
   setTemporalRange();
-}
-
-function gotoFirstStep() {
-  if (variable.value === null) return;
-  setStep(temporalRangeMin.value);
-}
-
-function gotoLastStep() {
-  if (variable.value === null) return;
-  setStep(temporalRangeMax.value);
-}
-
-function stepBy(delta: number) {
-  if (variable.value === null || props.stepSelected == null) return;
-  setStep(
-    stepAlongAxis(axis.value, props.stepSelected, delta, [
-      temporalRangeMin.value,
-      temporalRangeMax.value,
-    ]),
-  );
-}
-
-function nextStep() {
-  stepBy(1);
-}
-
-function previousStep() {
-  stepBy(-1);
 }
 
 // The timestep typed in the header, applied on Enter or when the field loses
@@ -651,19 +512,10 @@ function applyStepDraftOnBlur() {
 
 watch(() => props.stepSelected, resetStepDraft, { immediate: true });
 
-async function getTimeSeriesPlotImage() {
-  const plotlyApi = getPlotlyApi();
-  const svg = await plotlyApi?.toImage({
-    format: "svg",
-    height: 600,
-    width: 1200,
-  });
-  const png = await plotlyApi?.toImage({
-    format: "png",
-    height: 600,
-    width: 1200,
-  });
-  return { png, svg };
+async function getTimeSeriesPlotImage(expectedTraces?: ExportTrace[]) {
+  const plotlyApi = plotImageApi;
+  if (!plotlyApi) throw new Error("The plot is not ready for export.");
+  return plotlyApi.toImages(expectedTraces);
 }
 
 // Watch the status object, not its `status` string: every request sets a new
@@ -685,17 +537,37 @@ onUnmounted(() => {
 defineExpose({ getTimeSeriesPlotImage });
 
 onMounted(() => {
-  localTemporalRangeMin.value = selectedTemporalRange.value[0];
-  localTemporalRangeMax.value = selectedTemporalRange.value[1];
+  const draft = datasetStore.temporalRangeDraft;
+  const [min, max] = selectedTemporalRange.value;
+  if (draft && draft.range[0] === min && draft.range[1] === max) {
+    localTemporalRangeMin.value = draft.min;
+    localTemporalRangeMax.value = draft.max;
+    isTemporalRangeEditable.value = true;
+  } else {
+    localTemporalRangeMin.value = min;
+    localTemporalRangeMax.value = max;
+  }
+});
+
+onBeforeUnmount(() => {
+  datasetStore.temporalRangeDraft =
+    isTemporalRangeEditable.value && hasTemporalRangeChanges.value
+      ? {
+          range: [...selectedTemporalRange.value],
+          min: localTemporalRangeMin.value,
+          max: localTemporalRangeMax.value,
+        }
+      : null;
 });
 
 watch(
-  () => [
-    minStep.value,
-    maxStep.value,
-    selectedTemporalRange.value[0],
-    selectedTemporalRange.value[1],
-  ],
+  () =>
+    [
+      minStep.value,
+      maxStep.value,
+      selectedTemporalRange.value[0],
+      selectedTemporalRange.value[1],
+    ] as const,
   ([nextMin, nextMax, selectedMin, selectedMax]) => {
     // Keep the selected range within metadata bounds when datasets/routes change.
     if (
@@ -766,29 +638,8 @@ watch(
   display: flex;
   flex: 1 1 0;
   flex-direction: column;
-  min-height: calc(var(--plot-min-height) + 16px);
-  padding: 16px 16px 0;
-}
-
-.time-series-plot-shell--last {
   min-height: calc(var(--plot-min-height) + 32px);
-  padding-bottom: 16px;
-}
-
-/* Its bottom padding matches the map card's, so the buttons end level with
-   the map. */
-.time-series-step-controls {
-  display: flex;
-  flex-direction: column;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  gap: 4px;
-  /* Plotly's y-axis margin moves the plotting area's center to the right.
-     Use that same center for the playback controls. */
-  padding: 8px calc(16px - var(--plot-center-offset)) 16px
-    calc(16px + var(--plot-center-offset));
+  padding: 16px;
 }
 
 .time-series-current-year {
@@ -828,13 +679,6 @@ watch(
   opacity: 1;
 }
 
-.time-series-transport {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-}
-
 .timeseries-loading-overlay {
   position: absolute;
   inset: 0;
@@ -860,8 +704,7 @@ watch(
 }
 
 @media (max-width: 599px) {
-  .time-series-range > .v-btn,
-  .time-series-transport > .v-btn {
+  .time-series-range > .v-btn {
     min-width: 44px;
     min-height: 44px;
   }

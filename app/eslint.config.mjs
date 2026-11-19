@@ -23,16 +23,4 @@ export default createConfigForNuxt(
       "@typescript-eslint/no-extraneous-class": "off",
     },
   },
-  {
-    // Legacy Vuex store modules use vuex-module-decorators (decorators in .js files)
-    // which the TypeScript parser cannot handle. These are being phased out per AGENTS.md.
-    ignores: ["store/modules/**/*.js"],
-  },
-  {
-    // Legacy Vuetify config has unused imports that are kept for reference.
-    files: ["assets/style/vuetify.js"],
-    rules: {
-      "no-unused-vars": "off",
-    },
-  },
 );

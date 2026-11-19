@@ -4,37 +4,29 @@
       <v-col class="ma-0">
         <h1 class="text-h5 d-flex align-center ga-2">
           Select a Dataset
-          <v-tooltip
-            location="bottom"
-            text="View the SKOPE user guide (opens in a new tab)"
+          <v-btn
+            icon
+            size="small"
+            variant="text"
+            href="https://www.openskope.org/skope-users-guide/"
+            target="_blank"
           >
-            <template #activator="{ props }">
-              <v-btn
-                icon
-                size="small"
-                variant="text"
-                href="https://www.openskope.org/skope-users-guide/"
-                target="_blank"
-                v-bind="props"
-              >
-                <v-icon size="20">mdi-help-circle-outline</v-icon>
-              </v-btn>
-            </template>
-          </v-tooltip>
+            <v-icon size="20">mdi-help-circle-outline</v-icon>
+            <v-tooltip
+              activator="parent"
+              location="bottom"
+              text="View the SKOPE user guide (opens in a new tab)"
+            />
+          </v-btn>
         </h1>
       </v-col>
     </v-row>
     <Search />
     <v-row class="ma-0 pa-0">
       <v-col class="ma-0">
-        <template
-          v-for="dataset in datasets"
-          :key="dataset.absoluteUrl"
-          router
-          exact
-        >
+        <template v-for="dataset in datasets" :key="dataset.id">
           <v-card class="pa-4 my-3" elevation="0" variant="outlined">
-            <ListItem v-bind="dataset" />
+            <ListItem :dataset="dataset" />
           </v-card>
         </template>
         <LoadingSpinner v-if="loading" />
@@ -56,11 +48,11 @@ import LoadingSpinner from "@/components/LoadingSpinner.vue";
 import Search from "@/components/dataset/Search.vue";
 import { useDatasetStore } from "@/stores/dataset";
 import { useMetadataStore } from "@/stores/metadata";
-import { useLegacyStoreActions } from "@/composables/useLegacyStoreActions";
+import { useDatasetMetadata } from "@/composables/useDatasetMetadata";
 
 definePageMeta({ layout: "default" });
 
-const legacyActions = useLegacyStoreActions();
+const metadataActions = useDatasetMetadata();
 const datasetStore = useDatasetStore();
 const metadataStore = useMetadataStore();
 
@@ -76,7 +68,7 @@ await useAsyncData(
   "landingPageMetadata",
   async () => {
     try {
-      await legacyActions.loadAllDatasetMetadata();
+      await metadataActions.loadAllDatasetMetadata();
       loadFailed.value = false;
       return true;
     } catch (error) {

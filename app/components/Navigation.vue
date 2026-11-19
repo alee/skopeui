@@ -40,5 +40,3 @@ const navigationVisible = computed({
   },
 });
 </script>
-
-<style scoped></style>

@@ -14,39 +14,41 @@
         @click="selectLoadRequestDataFile"
       >
         <input
-          id="loadRequestDataFile"
+          ref="requestFile"
           type="file"
           accept=".json"
           style="display: none"
+          @click.stop
           @change="handleLoadRequestDataFile"
-        />
+        >
         Load saved analysis
       </v-btn>
     </template>
   </v-tooltip>
 </template>
 <script setup lang="ts">
-import { useRouter } from "vue-router";
-import { useLegacyStoreActions } from "@/composables/useLegacyStoreActions";
+import { useTemplateRef } from "vue";
+import { SavedAnalysisValidationError } from "@/utils/savedAnalysis";
+import { useSavedAnalysis } from "@/composables/useSavedAnalysis";
 
 const router = useRouter();
-const legacyActions = useLegacyStoreActions();
+const requestFile = useTemplateRef<HTMLInputElement>("requestFile");
+const savedAnalysis = useSavedAnalysis();
 
 function selectLoadRequestDataFile() {
-  document.getElementById("loadRequestDataFile")!.click();
+  requestFile.value?.click();
 }
 
 async function handleLoadRequestDataFile(event: Event) {
-  const file = (event.target as HTMLInputElement).files?.[0];
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
   if (!file) return;
+  // Allow choosing the same file again after a failed import.
+  input.value = "";
   try {
-    const requestData = JSON.parse(await file.text());
-    await legacyActions.initializeDataset(
-      requestData.dataset_id,
-      requestData.variable_id,
+    const requestData = await savedAnalysis.restore(
+      JSON.parse(await file.text()),
     );
-    // The analysis route guard needs the imported area before navigation.
-    legacyActions.loadRequestData(requestData);
     await router.push({
       name: "dataset-id-analyze-variable",
       params: {
@@ -56,9 +58,11 @@ async function handleLoadRequestDataFile(event: Event) {
     });
   } catch (error) {
     console.error(error);
-    alert("Unable to import the request file.");
+    alert(
+      error instanceof SavedAnalysisValidationError
+        ? error.message
+        : "Unable to import the request file.",
+    );
   }
 }
 </script>
-
-<style scoped></style>

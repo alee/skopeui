@@ -3,7 +3,29 @@
     <LoadingSpinner v-if="isLoadingMetadata" />
     <template v-else>
       <SubHeader :select-variable="true">
-        <v-btn color="accent" variant="flat" @click="exportData">
+        <v-btn
+          :to="visualizeLocation"
+          variant="outlined"
+          color="secondary"
+          prepend-icon="mdi-chevron-left"
+        >
+          Back to visualize
+        </v-btn>
+        <v-btn
+          :to="editAreaLocation"
+          variant="outlined"
+          color="secondary"
+          prepend-icon="mdi-vector-polygon"
+        >
+          Edit study area
+        </v-btn>
+        <v-btn
+          color="accent"
+          variant="flat"
+          :disabled="!canExport"
+          :loading="isExporting"
+          @click="exportData"
+        >
           Download
           <v-icon class="ml-2" size="small">mdi-download</v-icon>
         </v-btn>
@@ -17,6 +39,7 @@
             :show-step-controls="false"
             :traces="traces"
             :y-axis-label="yAxisLabel"
+            @plot-ready="isPlotReady = $event"
             @selected-temporal-range="updateTimeSeries"
           />
         </v-col>
@@ -144,50 +167,97 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from "vue";
+import {
+  ref,
+  reactive,
+  toRefs,
+  nextTick,
+  computed,
+  watch,
+  onBeforeUnmount,
+} from "vue";
 import { useMounted, whenever } from "@vueuse/core";
-import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
+import type { VForm } from "vuetify/components";
 import TimeSeriesPlot from "@/components/dataset/TimeSeriesPlot.vue";
 import SubHeader from "@/components/dataset/SubHeader.vue";
 import LoadingSpinner from "@/components/LoadingSpinner.vue";
-import { toISODate, extractYear } from "@/store/stats";
+import { toISODate } from "@/utils/stats";
 import {
-  buildReadme,
-  DEFAULT_CENTERED_SMOOTHING_WIDTH,
+  defaultAnalysisForm,
+  analysisOptionsFromForm,
+  analysisFormFromRequest,
+  transformOptionFor,
   SMOOTHING_OPTIONS,
   TRANSFORM_OPTIONS,
-} from "@/store/modules/constants";
+} from "@/utils/analysisOptions";
+import type { TimeSeriesPlotApi } from "@/types/plot";
+import type { DraftTimeseriesRequest } from "@/types/api";
+import { buildReadme } from "@/utils/buildReadme";
 import { useAnalysisStore } from "@/stores/analysis";
 import { useDatasetStore } from "@/stores/dataset";
+import { useTimeSeriesRequest } from "@/composables/useTimeSeriesRequest";
+import { useDatasetMetadata } from "@/composables/useDatasetMetadata";
+import { useStudyArea } from "@/composables/useStudyArea";
+import { captureAnalysisExport } from "@/utils/analysisExport";
 import { useMessagesStore } from "@/stores/messages";
-import { useLegacyStoreActions } from "@/composables/useLegacyStoreActions";
-import _ from "lodash";
 import JSZip from "jszip";
 import Papa from "papaparse";
 
 definePageMeta({ layout: "default", middleware: ["requires-study-area"] });
 
+const { buildId } = useAppConfig();
 const route = useRoute();
+// Capture the route key before navigation changes the reactive route object.
+const draftKey = `${route.params.id}:${route.params.variable}`;
+const visualizeLocation = computed(() => {
+  const { id, variable } = route.params;
+  return id && variable
+    ? { name: "dataset-id-visualize-variable", params: { id, variable } }
+    : undefined;
+});
+const editAreaLocation = computed(() =>
+  route.params.id
+    ? {
+        name: "dataset-id",
+        params: { id: route.params.id },
+        query: { returnTo: "analyze" },
+      }
+    : undefined,
+);
 const { mdAndDown } = useDisplay();
 const analysisStore = useAnalysisStore();
 const datasetStore = useDatasetStore();
-const messageStore = useMessagesStore();
-const legacyActions = useLegacyStoreActions();
-const { $download } = useNuxtApp() as any;
+const metadataActions = useDatasetMetadata();
+const studyArea = useStudyArea();
+const { run: requestTimeSeries } = useTimeSeriesRequest("analyze");
+const { $download } = useNuxtApp();
 
-const plot = ref<any>(null);
-const zScoreMovingIntervalTimeSteps = ref(25);
+const plot = ref<TimeSeriesPlotApi | null>(null);
+const isPlotReady = ref(false);
+const isExporting = ref(false);
+const exportMessages = useMessagesStore();
+const canExport = computed(
+  () =>
+    analysisStore.hasCurrentResult && isPlotReady.value && !isExporting.value,
+);
+function copyFormDraft(draft: ReturnType<typeof defaultAnalysisForm>) {
+  return {
+    ...draft,
+    timeRange: { lb: { ...draft.timeRange.lb }, ub: { ...draft.timeRange.ub } },
+  };
+}
+const form = reactive(defaultAnalysisForm());
+const {
+  zonalStatistic,
+  smoothingOption,
+  smoothingTimeStep,
+  transformOption,
+  timeRange,
+  zScoreMovingIntervalTimeSteps,
+} = toRefs(form);
 const analysisFormValid = ref(true);
-const zonalStatistic = ref("mean");
 const yAxisLabel = ref<string | null>(null);
-const smoothingOption = ref("none");
-const smoothingTimeStep = ref(DEFAULT_CENTERED_SMOOTHING_WIDTH);
-const transformOption = ref("none");
-const timeRange = ref({
-  lb: { year: 1500, month: 1 },
-  ub: { year: 1800, month: 1 },
-});
 
 const zonalStatisticOptions = [
   { label: "Mean of its pixels", id: "mean" },
@@ -199,48 +269,9 @@ const statisticsHeaders = [
   { title: "Mean", align: "end", key: "mean", width: "23%" },
   { title: "Median", align: "end", key: "median", width: "23%" },
   { title: "Std. dev.", align: "end", key: "stdev", width: "23%" },
-];
+] as const;
 const transformOptions = TRANSFORM_OPTIONS;
 const smoothingOptions = SMOOTHING_OPTIONS;
-
-// Proxy that forwards property reads/writes to the composition API refs,
-// compatible with the analyzeVue interface expected by SMOOTHING_OPTIONS /
-// TRANSFORM_OPTIONS toRequestData / fromRequestData functions.
-const analyzeVue: any = {
-  get temporalRange() {
-    return temporalRange.value;
-  },
-  get smoothingOption() {
-    return smoothingOption.value;
-  },
-  set smoothingOption(v) {
-    smoothingOption.value = v;
-  },
-  get smoothingTimeStep() {
-    return smoothingTimeStep.value;
-  },
-  set smoothingTimeStep(v) {
-    smoothingTimeStep.value = v;
-  },
-  get transformOption() {
-    return transformOption.value;
-  },
-  set transformOption(v) {
-    transformOption.value = v;
-  },
-  get timeRange() {
-    return timeRange.value;
-  },
-  set timeRange(v) {
-    timeRange.value = v;
-  },
-  get zScoreMovingIntervalTimeSteps() {
-    return zScoreMovingIntervalTimeSteps.value;
-  },
-  set zScoreMovingIntervalTimeSteps(v) {
-    zScoreMovingIntervalTimeSteps.value = v;
-  },
-};
 
 const metadata = computed(() => datasetStore.metadata);
 const isLoadingMetadata = computed(() => metadata.value == null);
@@ -248,7 +279,7 @@ const temporalRange = computed(() => datasetStore.temporalRange);
 // The "selected interval" z-score uses the range on screen as its reference,
 // so its label names that range.
 const transformItems = computed(() =>
-  transformOptions.map((option: any) => {
+  transformOptions.map((option) => {
     if (option.id !== "zscoreSelected") return option;
     const [start, end] = temporalRange.value;
     const isFullRecord =
@@ -265,7 +296,6 @@ const minYear = computed(() => datasetStore.minYear);
 const maxYear = computed(() => datasetStore.maxYear);
 const studyAreaGeoJson = computed(() => datasetStore.geoJson);
 const hasSmoothingOption = computed(() => smoothingOption.value !== "none");
-const hasTransformOption = computed(() => transformOption.value !== "none");
 const isStudyAreaPolygon = computed(() => {
   const geojson = studyAreaGeoJson.value as any;
   if (!geojson) return false;
@@ -289,36 +319,18 @@ const isStudyAreaPolygon = computed(() => {
 const summaryStatistics = computed(() => analysisStore.summaryStatistics);
 const traces = computed(() => {
   const timeseries = analysisStore.timeseries;
-  const transformed = timeseries.map((ts: any) => ({ ...ts, type: "scatter" }));
+  const transformed = timeseries.map((ts) => ({
+    ...ts,
+    type: "scatter" as const,
+  }));
   if (transformed.length > 0) return transformed;
   return [
     { ...datasetStore.filteredTimeSeries(), type: "scatter", name: "Original" },
   ];
 });
-const smoothingFunction = computed(() => {
-  const option = smoothingOptions.find(
-    (x: any) => x.id === smoothingOption.value,
-  ) as any;
-  return option?.toRequestData(analyzeVue);
-});
-const transformRequestData = computed(() => {
-  const option = transformOptions.find(
-    (x: any) => x.id === transformOption.value,
-  ) as any;
-  return option?.toRequestData(analyzeVue);
-});
-const requestedSeriesOptions = computed(() => {
-  const series: any[] = [
-    {
-      name: hasTransformOption.value ? "Transformed" : "Original",
-      smoother: { type: "NoSmoother" },
-    },
-  ];
-  if (hasSmoothingOption.value) {
-    series.push({ name: "Smoothed", smoother: smoothingFunction.value });
-  }
-  return series;
-});
+const formOptions = computed(() =>
+  analysisOptionsFromForm(form, temporalRange.value),
+);
 
 function transformHint(transform: string) {
   switch (transform) {
@@ -344,74 +356,21 @@ function smoothingHint(smooth: string) {
   }
 }
 
-async function retrieveAnalysis(data: any) {
+async function retrieveAnalysis(data: Partial<DraftTimeseriesRequest>) {
   // Like visualize: say there's no area instead of leaving a blank plot.
   if (!data.selected_area) {
     datasetStore.setTimeSeriesNoArea();
     return;
   }
   if (Object.values(data).some((v) => v == undefined)) return;
-  datasetStore.setGeoJson(data.selected_area);
-  datasetStore.setTemporalRange([
-    extractYear(data.time_range.gte),
-    extractYear(data.time_range.lte),
-  ]);
-  datasetStore.setTimeSeriesLoading();
-  try {
-    const varId = route.params.variable as string;
-    const jobId = datasetStore.jobIds?.[varId];
-    const { newJobId, response } = await legacyActions.resolveTimeSeries(
-      jobId,
-      data,
-    );
-    datasetStore.setJobId(varId, newJobId);
-    analysisStore.setResponse(response);
-    datasetStore.setAreaSummary(response.n_cells, response.area);
-    datasetStore.setTimeSeriesLoaded();
-  } catch (e: any) {
-    if (e.response) {
-      const { status, data: responseData } = e.response;
-      const detail = Array.isArray(responseData.detail)
-        ? responseData.detail
-        : [{ msg: responseData.detail }];
-      if (status === 504) {
-        datasetStore.setTimeSeriesTimeout();
-        messageStore.error(
-          "This area took too long to process. Try a smaller one on the Select Area step.",
-        );
-      } else if (status >= 500) {
-        datasetStore.setTimeSeriesServerError(detail);
-        messageStore.error(
-          detail.map((d: any) => d.msg).join(" ") ||
-            "Server error. Please try again.",
-        );
-      } else if (status === 422) {
-        // The API can't compute these options and says why: the user can
-        // choose others.
-        datasetStore.setTimeSeriesBadRequest(detail);
-        messageStore.warning(
-          detail.map((d: any) => d.msg).join(" ") ||
-            "These options can't be computed. Please choose others.",
-        );
-      } else if (status >= 400) {
-        datasetStore.setTimeSeriesBadRequest(detail);
-        messageStore.error(
-          detail.map((d: any) => d.msg).join(" ") || "Bad request.",
-        );
-      }
-    } else {
-      const msg =
-        e.message ||
-        "An unknown error occurred while retrieving analysis results. Please go back to the Select Area and try again.";
-      datasetStore.setTimeSeriesServerError([{ msg }]);
-      messageStore.error(msg);
-    }
-  }
+  await requestTimeSeries(data as DraftTimeseriesRequest);
 }
 
 function initializeRequestData() {
-  const incoming: any = { ...datasetStore.defaultApiRequestData };
-  const existing = analysisStore.requestData as any;
+  const incoming: DraftTimeseriesRequest = {
+    ...datasetStore.defaultApiRequestData,
+  };
+  const existing = analysisStore.requestData;
   if (existing?.transform) incoming.transform = existing.transform;
   if (existing?.zonal_statistic)
     incoming.zonal_statistic = existing.zonal_statistic;
@@ -421,31 +380,8 @@ function initializeRequestData() {
   return incoming;
 }
 
-function loadTransformOption(transform: any, timeRange: any) {
-  if (!transform) return;
-  const option = transformOptions.find((x: any) =>
-    x.matches(transform, timeRange),
-  ) as any;
-  if (option) option.fromRequestData(analyzeVue, transform);
-}
-
-function loadSmoothingOption(requestedSeriesOptions: any[]) {
-  const smoothed = requestedSeriesOptions?.find(
-    (x: any) => x.name === "Smoothed",
-  );
-  if (smoothed) {
-    const option = smoothingOptions.find(
-      (x: any) => x.method === smoothed.smoother.method,
-    ) as any;
-    if (option) option.fromRequestData(analyzeVue, smoothed.smoother);
-  }
-}
-
-async function initializeFormData(requestData: any) {
-  if (!requestData) return;
-  zonalStatistic.value = requestData.zonal_statistic ?? zonalStatistic.value;
-  loadSmoothingOption(requestData.requested_series_options ?? []);
-  loadTransformOption(requestData.transform, requestData.time_range);
+function initializeFormData(request: Partial<DraftTimeseriesRequest>) {
+  Object.assign(form, analysisFormFromRequest(form, request));
 }
 
 function clearTransformedTimeSeries() {
@@ -454,42 +390,47 @@ function clearTransformedTimeSeries() {
   analysisStore.setDefaultRequestData(datasetStore.defaultApiRequestData);
 }
 
-function tracesAsArrayOfObjects() {
-  const rows: any[] = [];
-  for (const trace of traces.value) {
-    for (let i = 0; i < trace.x.length; i++) {
-      rows.push({ name: trace.name, x: trace.x[i], y: trace.y[i] });
-    }
-  }
-  return rows;
-}
-
 async function exportData() {
-  const stats = summaryStatistics.value.map((s: any) =>
-    _.mapValues(s, (v: any) => {
-      const f = parseFloat(v);
-      return _.isNaN(f) ? v : f;
-    }),
-  );
-  const plotImages = await plot.value?.getTimeSeriesPlotImage();
-  const png = await fetch(plotImages.png);
-  const svg = await fetch(plotImages.svg);
-  const geoJson = studyAreaGeoJson.value;
-  const requestData = analysisStore.requestData as any;
-  const zip = new JSZip();
-  zip.file("skope-request.json", JSON.stringify(requestData));
-  zip.file("summary-statistics.json", JSON.stringify(stats));
-  zip.file("time-series.json", JSON.stringify(traces.value));
-  zip.file("time-series.csv", Papa.unparse(tracesAsArrayOfObjects()));
-  zip.file("plot.png", await png.blob());
-  zip.file("plot.svg", await svg.blob());
-  zip.file("study-area.geojson", JSON.stringify(geoJson));
-  zip.file("README.md", buildReadme(requestData));
-  const content = await zip.generateAsync({ type: "blob" });
-  $download.saveAs(
-    content,
-    `${requestData.dataset_id}_${requestData.variable_id}.zip`,
-  );
+  if (!canExport.value || !analysisStore.completedRequest) return;
+  isExporting.value = true;
+  try {
+    const snapshot = captureAnalysisExport(
+      analysisStore.completedRequest,
+      analysisStore.response,
+    );
+    // The plot captures its data and current zoom synchronously before rendering either image.
+    if (!plot.value) throw new Error("The plot is not ready for export.");
+    const plotImages = await plot.value.getTimeSeriesPlotImage(snapshot.traces);
+    const [png, svg] = await Promise.all([
+      fetch(plotImages.png).then((image) => image.blob()),
+      fetch(plotImages.svg).then((image) => image.blob()),
+    ]);
+    const zip = new JSZip();
+    zip.file("skope-request.json", JSON.stringify(snapshot.request));
+    zip.file(
+      "summary-statistics.json",
+      JSON.stringify(snapshot.summaryStatistics),
+    );
+    zip.file("time-series.json", JSON.stringify(snapshot.traces));
+    zip.file("time-series.csv", Papa.unparse(snapshot.rows));
+    zip.file("plot.png", png);
+    zip.file("plot.svg", svg);
+    zip.file(
+      "study-area.geojson",
+      JSON.stringify(snapshot.request.selected_area),
+    );
+    zip.file("README.md", buildReadme(snapshot.request, buildId));
+    const content = await zip.generateAsync({ type: "blob" });
+    $download.saveAs(
+      content,
+      `${snapshot.request.dataset_id}_${snapshot.request.variable_id}.zip`,
+    );
+  } catch (error) {
+    console.error("Unable to export analysis", error);
+    exportMessages.error("Unable to prepare the download. Please try again.");
+  } finally {
+    isExporting.value = false;
+  }
 }
 
 async function updateTimeSeries() {
@@ -498,21 +439,20 @@ async function updateTimeSeries() {
     datasetStore.timeSeriesRequestStatus.status === "loading"
   )
     return;
-  const requestData = {
+  const requestData: DraftTimeseriesRequest = {
     ...datasetStore.defaultApiRequestData,
-    zonal_statistic: zonalStatistic.value,
-    transform: transformRequestData.value,
+    ...formOptions.value,
     time_range: {
       gte: toISODate(temporalRange.value[0]),
       lte: toISODate(temporalRange.value[1]),
     },
-    requested_series_options: requestedSeriesOptions.value,
   };
   analysisStore.setRequestData(requestData);
 }
 
 // A z-score needs at least two values to have a spread to divide by.
-function validateMinYear(year: number) {
+function validateMinYear(value: number | string) {
+  const year = Number(value);
   if (year < minYear.value) return `Please enter a min year > ${minYear.value}`;
   if (year > maxYear.value)
     return `Please enter a min year <= ${maxYear.value}`;
@@ -521,7 +461,8 @@ function validateMinYear(year: number) {
   return true;
 }
 
-function validateMaxYear(year: number) {
+function validateMaxYear(value: number | string) {
+  const year = Number(value);
   if (year < minYear.value) return `Please enter a max year > ${minYear.value}`;
   if (year > maxYear.value)
     return `Please enter a max year <= ${maxYear.value}`;
@@ -532,7 +473,7 @@ function validateMaxYear(year: number) {
 
 // The dataset's number of time steps bounds every moving window.
 const timestepCount = computed(
-  () => (datasetStore.metadata as any)?.time?.count ?? Infinity,
+  () => datasetStore.metadata?.time.count ?? Infinity,
 );
 
 function validateZScoreWidth(width: number) {
@@ -546,7 +487,7 @@ function validateZScoreWidth(width: number) {
 
 // Each year's rule compares it with the other year: check both when either
 // changes, so fixing one clears the other's message.
-const analysisRequestForm = ref<any>(null);
+const analysisRequestForm = ref<InstanceType<typeof VForm> | null>(null);
 watch(
   () => [timeRange.value.lb.year, timeRange.value.ub.year],
   () => analysisRequestForm.value?.validate(),
@@ -565,25 +506,24 @@ watch(
   () => analysisStore.requestData,
   async (data) => {
     if (!data) return;
-    await initializeFormData(data);
-    await retrieveAnalysis(data as any);
-    if (hasTransformOption.value) {
-      yAxisLabel.value =
-        (
-          transformItems.value.find(
-            (x: any) => x.id === transformOption.value,
-          ) as any
-        )?.label ?? null;
-    } else {
-      yAxisLabel.value = "";
-    }
+    initializeFormData(data);
+    await retrieveAnalysis(data);
+    // Label the requested result independently of unsubmitted form edits.
+    const appliedTransform = data.transform
+      ? transformOptionFor(data.transform, data.time_range)
+      : "none";
+    yAxisLabel.value =
+      appliedTransform === "none"
+        ? ""
+        : (transformItems.value.find((option) => option.id === appliedTransform)
+            ?.label ?? null);
   },
 );
 
 await useAsyncData(
   `analyze-${route.params.id}-${route.params.variable}`,
   async () => {
-    await legacyActions.initializeDataset(
+    await metadataActions.initializeDataset(
       route.params.id as string,
       route.params.variable as string,
     );
@@ -601,13 +541,21 @@ const isMounted = useMounted();
 whenever(
   () => isMounted.value && datasetStore.metadata != null,
   async () => {
-    legacyActions.initializeDatasetGeoJson();
-    analysisStore.setGeoJson(datasetStore.geoJson as any);
+    studyArea.restore();
     const requestData = initializeRequestData();
-    await initializeFormData(requestData);
+    initializeFormData(requestData);
+    // Let the applied-request watcher run before restoring unsubmitted edits.
+    await nextTick();
+    const draft = analysisStore.formDrafts?.[draftKey];
+    if (draft) Object.assign(form, copyFormDraft(draft));
   },
   { once: true },
 );
+// Keep raw form input, including inactive windows and unsubmitted edits,
+// separate from the validated options used to request analysis.
+onBeforeUnmount(() => {
+  analysisStore.formDrafts[draftKey] = copyFormDraft(form);
+});
 </script>
 
 <style scoped>

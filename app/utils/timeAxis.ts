@@ -76,7 +76,7 @@ export function stepAlongAxis(
   if (inRange.length === 0) return year;
   const before = inRange.filter((y) => y <= year).length - 1;
   const index = Math.min(Math.max(before + delta, 0), inRange.length - 1);
-  return inRange[index];
+  return inRange[index]!;
 }
 
 /**

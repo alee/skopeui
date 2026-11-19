@@ -15,15 +15,11 @@ import {
 import DatasetIdPage from "@/pages/dataset/[id]/index.vue";
 
 let routeParams = { id: "paleocar" };
+let routeQuery: Record<string, string> = {};
 let datasetStore: any;
 let appStore: any;
-let legacyActions: any;
-
-vi.mock("vue-router", () => ({
-  useRoute: () => ({
-    params: routeParams,
-  }),
-}));
+let metadataActions: any;
+let studyArea: any;
 
 vi.mock("@/components/LoadingSpinner.vue", () => ({
   default: {
@@ -56,8 +52,11 @@ vi.mock("@/stores/app", () => ({
   useAppStore: () => appStore,
 }));
 
-vi.mock("@/composables/useLegacyStoreActions", () => ({
-  useLegacyStoreActions: () => legacyActions,
+vi.mock("@/composables/useDatasetMetadata", () => ({
+  useDatasetMetadata: () => metadataActions,
+}));
+vi.mock("@/composables/useStudyArea", () => ({
+  useStudyArea: () => studyArea,
 }));
 
 const layoutStubs = {
@@ -71,22 +70,25 @@ const layoutStubs = {
   "v-card-actions": { template: "<div><slot /></div>" },
   "v-icon": { template: "<i><slot /></i>" },
   "v-btn": {
-    props: ["disabled"],
-    template: '<button data-test="btn" :disabled="disabled"><slot /></button>',
+    props: ["disabled", "to"],
+    template:
+      '<button data-test="btn" :disabled="disabled" :data-to="to && JSON.stringify(to)"><slot /></button>',
   },
 };
 
 describe("route /dataset/:id", () => {
   beforeEach(() => {
+    vi.stubGlobal("useRoute", () => ({
+      params: routeParams,
+      query: routeQuery,
+    }));
     installNuxtTestGlobals();
 
     routeParams = { id: "paleocar" };
     datasetStore = createDatasetStore({ hasGeoJson: false });
     appStore = createAppStore();
-    legacyActions = {
-      initializeDataset: vi.fn(async () => true),
-      clearGeoJson: vi.fn(),
-    };
+    metadataActions = { initializeDataset: vi.fn(async () => true) };
+    studyArea = { clear: vi.fn() };
   });
 
   afterEach(() => {
@@ -108,11 +110,33 @@ describe("route /dataset/:id", () => {
         .findComponent(DatasetIdPage)
         .find('[data-test="map"]');
 
-      expect(legacyActions.initializeDataset).toHaveBeenCalledWith("paleocar");
+      expect(metadataActions.initializeDataset).toHaveBeenCalledWith(
+        "paleocar",
+      );
       expect(map.attributes("data-display-raster")).toBe("true");
       expect(map.attributes("data-step")).toBe(String(firstYear));
     },
   );
+
+  it("[behavior] returns directly to analysis after editing its study area", async () => {
+    routeQuery = { returnTo: "analyze" };
+    try {
+      const wrapper = await mountWithSuspense(DatasetIdPage, {
+        global: { stubs: layoutStubs },
+      });
+      await flushPromises();
+      const next = wrapper
+        .findAll("button")
+        .find((button) => button.text().includes("Return to analysis"))!;
+      expect(JSON.parse(next.attributes("data-to")!)).toMatchObject({
+        name: "dataset-id-analyze-variable",
+        params: { id: "paleocar", variable: "tasmax" },
+      });
+      wrapper.unmount();
+    } finally {
+      routeQuery = {};
+    }
+  });
 
   it("[behavior] enables Visualize button only when study area is valid", async () => {
     const wrapper = await mountWithSuspense(DatasetIdPage, {

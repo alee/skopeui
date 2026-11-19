@@ -48,7 +48,7 @@ describe("VariableList", () => {
       "Precipitation 2 variables",
       "Growing Degree Days 1 variable",
     ]);
-    expect(wrapper.findAll(".group")[0].text()).toContain(
+    expect(wrapper.findAll(".group")[0]!.text()).toContain(
       "Title of ppt_may_sept",
     );
   });

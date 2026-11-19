@@ -9,7 +9,7 @@
           color="accent"
           variant="flat"
         >
-          Visualize Data
+          {{ returnToAnalysis ? "Return to analysis" : "Visualize Data" }}
           <v-icon size="small" class="ml-2"> mdi-chevron-right </v-icon>
         </v-btn>
       </SubHeader>
@@ -53,22 +53,23 @@
 
 <script setup lang="ts">
 import { ref, computed } from "vue";
-import { useRoute } from "vue-router";
 import LoadingSpinner from "@/components/LoadingSpinner.vue";
 import SubHeader from "@/components/dataset/SubHeader.vue";
 import Map from "@/components/dataset/Map.client.vue";
-import { useLegacyStoreActions } from "@/composables/useLegacyStoreActions";
+import { useDatasetMetadata } from "@/composables/useDatasetMetadata";
+import { useStudyArea } from "@/composables/useStudyArea";
 import { useAppStore } from "@/stores/app";
 import { useDatasetStore } from "@/stores/dataset";
 
 definePageMeta({
   layout: "default",
-  validate: ({ params }: { params: Record<string, string> }) =>
-    /^\w+$/.test(params.id),
+  validate: ({ params }) =>
+    typeof params.id === "string" && /^\w+$/.test(params.id),
 });
 
 const route = useRoute();
-const legacyActions = useLegacyStoreActions();
+const metadataActions = useDatasetMetadata();
+const studyArea = useStudyArea();
 const appStore = useAppStore();
 const datasetStore = useDatasetStore();
 
@@ -87,34 +88,41 @@ const confirmGeometry = computed({
     shouldConfirmGeometry.value = value;
   },
 });
+const returnToAnalysis = computed(() => route.query?.returnTo === "analyze");
+
 // No link without both params: the router throws mid-render otherwise.
 const visualizeLocation = computed(() => {
   const id = route.params.id;
-  const variable = (datasetStore.variable as any)?.id;
+  const variable = datasetStore.variable.id;
   if (!id || !variable) return undefined;
-  return { name: "dataset-id-visualize-variable", params: { id, variable } };
+  return {
+    name: returnToAnalysis.value
+      ? "dataset-id-analyze-variable"
+      : "dataset-id-visualize-variable",
+    params: { id, variable },
+  };
 });
 
 await useAsyncData(
   `dataset-${route.params.id}`,
   async () => {
-    await legacyActions.initializeDataset(route.params.id as string);
+    await metadataActions.initializeDataset(route.params.id as string);
     return true;
   },
   { server: false },
 );
 
 useHead(() => ({
-  title: (metadata.value as any)?.title || "SKOPE",
-  meta: (metadata.value as any)?.description
-    ? [{ name: "description", content: (metadata.value as any).description }]
+  title: metadata.value?.title || "SKOPE",
+  meta: metadata.value?.description
+    ? [{ name: "description", content: metadata.value.description }]
     : [],
 }));
 
 function clearGeometry() {
   shouldConfirmGeometry.value = false;
   appStore.setVisited();
-  legacyActions.clearGeoJson();
+  studyArea.clear();
 }
 
 function mapLoaded(_value: boolean) {

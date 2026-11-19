@@ -1,5 +1,5 @@
 import { vi } from "vitest";
-import { flushPromises, mount, type MountingOptions } from "@vue/test-utils";
+import { flushPromises, mount } from "@vue/test-utils";
 import { defineComponent, h, nextTick, Suspense, type Component } from "vue";
 
 export function installNuxtTestGlobals(options?: {
@@ -33,7 +33,7 @@ export function resetNuxtTestGlobals() {
 
 export async function mountWithSuspense(
   component: Component,
-  options: MountingOptions<any> = {},
+  options: NonNullable<Parameters<typeof mount>[1]> = {},
 ) {
   const Root = defineComponent({
     name: "SuspenseTestRoot",

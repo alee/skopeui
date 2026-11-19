@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 
 type MessageItem = {
-  type: string;
+  type: "info" | "warning" | "error";
   message: string;
   /** Raised while opening a page, so it belongs to that page. */
   keepOnNavigation?: boolean;
@@ -23,9 +23,6 @@ export const useMessagesStore = defineStore("messages", {
     },
     error(message: string) {
       this.messages.push({ type: "error", message });
-    },
-    clearMessages() {
-      this.messages.splice(0, this.messages.length);
     },
     /** Drops the last page's messages when another page opens. */
     clearOnNavigation() {

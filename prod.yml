@@ -3,5 +3,7 @@ services:
     build:
       target: production
     image: openskope/skopeui:prod
+    environment:
+      NUXT_PUBLIC_API_BASE: ${NUXT_PUBLIC_API_BASE:-https://api.openskope.org}
     ports:
       - "3000:3000"

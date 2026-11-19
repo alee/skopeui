@@ -33,7 +33,7 @@ describe("Messages", () => {
       "info",
     ]);
     expect(alerts.every((a) => a.attributes("data-color") == null)).toBe(true);
-    expect(alerts[0].attributes("data-icon")).toBe("mdi-alert-circle");
+    expect(alerts[0]!.attributes("data-icon")).toBe("mdi-alert-circle");
   });
 
   it("dismisses the alert whose close button was clicked", async () => {
@@ -55,7 +55,7 @@ describe("Messages", () => {
         },
       },
     });
-    await wrapper.findAll(".close")[0].trigger("click");
+    await wrapper.findAll(".close")[0]!.trigger("click");
 
     expect(store.messages.map((m) => m.message)).toEqual(["second"]);
   });

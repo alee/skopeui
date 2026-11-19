@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createPinia, setActivePinia } from "pinia";
+import { useRuntimeConfig } from "nuxt/app";
+import type { TimeseriesRequest } from "@/types/timeseries";
 
-import { useLegacyStoreActions } from "@/composables/useLegacyStoreActions";
+import { useExtractionStore } from "@/stores/extraction";
+import { extractionIdentity } from "@/utils/extractionIdentity";
 import { useDatasetStore } from "@/stores/dataset";
 
 const RESULT = { series: [], summary_stats: [], n_cells: 1, area: 0 };
@@ -10,13 +13,51 @@ function respond(status: number, body: unknown) {
   return new Response(JSON.stringify(body), { status });
 }
 
+// Seed a previously submitted job to exercise API recovery paths.
+async function resolve(
+  existingJobId: string | undefined,
+  data: Record<string, any>,
+) {
+  const store = useExtractionStore();
+  const key = extractionIdentity(data, useDatasetStore().metadata);
+  if (existingJobId) store.jobIds[key] = existingJobId;
+  // Recovery tests exercise the store below the composable that validates requests.
+  const response = await store.resolveTimeSeries(data as TimeseriesRequest);
+  return { newJobId: store.jobIds[key], response };
+}
+
 describe("resolveTimeSeries", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
+  });
+
+  it("uses the runtime API base for extraction, polling and analysis", async () => {
+    vi.mocked(useRuntimeConfig).mockReturnValue({
+      public: { apiBase: "https://runtime.example.test/v3/" },
+    } as ReturnType<typeof useRuntimeConfig>);
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(respond(200, { job_id: "runtime-job" }))
+      .mockResolvedValueOnce(
+        respond(200, { status: "SUCCESS", result: RESULT }),
+      )
+      .mockResolvedValueOnce(respond(200, RESULT));
+    vi.stubGlobal("fetch", fetchMock);
+    const store = useExtractionStore();
+    await store.resolveTimeSeries({} as any);
+    await store.resolveTimeSeries({
+      transform: { type: "NoTransform" },
+    } as any);
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      "https://runtime.example.test/v3/timeseries/extract",
+      "https://runtime.example.test/v3/timeseries/status/runtime-job",
+      "https://runtime.example.test/v3/timeseries/analyze",
+    ]);
   });
 
   it.each([404, 410])(
@@ -31,12 +72,11 @@ describe("resolveTimeSeries", () => {
         );
       vi.stubGlobal("fetch", fetchMock);
 
-      const { newJobId, response } =
-        await useLegacyStoreActions().resolveTimeSeries("old-job", {});
+      const { newJobId, response } = await resolve("old-job", {});
 
       expect(newJobId).toBe("new-job");
       expect(response).toEqual(RESULT);
-      expect(fetchMock.mock.calls[1][0]).toMatch(/\/timeseries\/extract$/);
+      expect(fetchMock.mock.calls[1]![0]!).toMatch(/\/timeseries\/extract$/);
     },
   );
 
@@ -48,9 +88,9 @@ describe("resolveTimeSeries", () => {
       .mockResolvedValueOnce(respond(422, { detail: "needs at least 2" }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(
-      useLegacyStoreActions().resolveTimeSeries("job", {}),
-    ).rejects.toMatchObject({ response: { status: 422 } });
+    await expect(resolve("job", {})).rejects.toMatchObject({
+      response: { status: 422 },
+    });
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
@@ -68,10 +108,7 @@ describe("resolveTimeSeries", () => {
     vi.stubGlobal("fetch", fetchMock);
     vi.useFakeTimers();
 
-    const pending = useLegacyStoreActions().resolveTimeSeries(
-      "running-job",
-      {},
-    );
+    const pending = resolve("running-job", {});
     await vi.runAllTimersAsync();
     const { newJobId, response } = await pending;
     vi.useRealTimers();
@@ -94,13 +131,10 @@ describe("resolveTimeSeries", () => {
       );
     vi.stubGlobal("fetch", fetchMock);
 
-    const { newJobId } = await useLegacyStoreActions().resolveTimeSeries(
-      "old-job",
-      {},
-    );
+    const { newJobId } = await resolve("old-job", {});
 
     expect(newJobId).toBe("new-job");
-    expect(fetchMock.mock.calls[2][0]).toMatch(/\/timeseries\/extract$/);
+    expect(fetchMock.mock.calls[2]![0]!).toMatch(/\/timeseries\/extract$/);
   });
 
   it.each([404, 410])(
@@ -125,13 +159,10 @@ describe("resolveTimeSeries", () => {
         time_range: { gte: "0103", lte: "2000" },
       };
 
-      const result = await useLegacyStoreActions().resolveTimeSeries(
-        "running-job",
-        request,
-      );
+      const result = await resolve("running-job", request);
 
       expect(result).toEqual({ newJobId: "new-job", response: RESULT });
-      const [url, options] = fetchMock.mock.calls[3];
+      const [url, options] = fetchMock.mock.calls[3]!;
       expect(url).toMatch(/\/timeseries\/extract$/);
       expect(JSON.parse(options.body)).toEqual(request);
     },
@@ -147,9 +178,9 @@ describe("resolveTimeSeries", () => {
       .mockResolvedValueOnce(respond(422, { detail: "needs at least 2" }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(
-      useLegacyStoreActions().resolveTimeSeries("running-job", {}),
-    ).rejects.toMatchObject({ response: { status: 422 } });
+    await expect(resolve("running-job", {})).rejects.toMatchObject({
+      response: { status: 422 },
+    });
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
@@ -165,9 +196,7 @@ describe("resolveTimeSeries", () => {
       );
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(
-      useLegacyStoreActions().resolveTimeSeries("old-job", {}),
-    ).rejects.toMatchObject({
+    await expect(resolve("old-job", {})).rejects.toMatchObject({
       response: {
         status: 504,
         data: { detail: [{ msg: "Processing exceeded 20000 ms." }] },
@@ -178,17 +207,17 @@ describe("resolveTimeSeries", () => {
 
   it("records a new extraction's job as soon as it's submitted", async () => {
     let jobIdWhilePolling: string | undefined;
-    const store = useDatasetStore();
+    const store = useExtractionStore();
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(respond(200, { job_id: "new-job" }))
       .mockImplementationOnce(async () => {
-        jobIdWhilePolling = store.jobIds?.ppt_annual;
+        jobIdWhilePolling = Object.values(store.jobIds)[0];
         return respond(200, { status: "SUCCESS", result: RESULT });
       });
     vi.stubGlobal("fetch", fetchMock);
 
-    await useLegacyStoreActions().resolveTimeSeries(undefined, {
+    await resolve(undefined, {
       variable_id: "ppt_annual",
     });
 
@@ -207,7 +236,7 @@ describe("resolveTimeSeries", () => {
     vi.stubGlobal("fetch", fetchMock);
     vi.useFakeTimers();
 
-    const pending = useLegacyStoreActions().resolveTimeSeries(undefined, {});
+    const pending = resolve(undefined, {});
     await vi.advanceTimersByTimeAsync(4_000);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     await vi.advanceTimersByTimeAsync(6_000);
@@ -224,7 +253,7 @@ describe("resolveTimeSeries", () => {
     );
     vi.useFakeTimers();
 
-    const pending = useLegacyStoreActions().resolveTimeSeries(undefined, {});
+    const pending = resolve(undefined, {});
     const outcome = expect(pending).rejects.toMatchObject({
       response: { status: 503 },
     });
@@ -239,8 +268,8 @@ describe("resolveTimeSeries", () => {
       vi.fn().mockResolvedValue(respond(500, { detail: "boom" })),
     );
 
-    await expect(
-      useLegacyStoreActions().resolveTimeSeries("old-job", {}),
-    ).rejects.toMatchObject({ response: { status: 500 } });
+    await expect(resolve("old-job", {})).rejects.toMatchObject({
+      response: { status: 500 },
+    });
   });
 });

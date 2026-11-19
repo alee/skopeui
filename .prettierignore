@@ -12,3 +12,5 @@ secrets
 _citation.bib
 _citation.txt
 app/contracts
+
+app/generated

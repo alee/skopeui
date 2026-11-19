@@ -10,7 +10,12 @@ const paleocar = metadataFixture.datasets[0] as Dataset;
 function mountDetail(overrides: Partial<Dataset> = {}) {
   return mount(MetadataDetail, {
     props: { metadata: { ...paleocar, ...overrides } },
-    global: { stubs: { VariableList: true } },
+    global: {
+      stubs: {
+        VariableList: true,
+        "v-card-text": { template: "<div><slot /></div>" },
+      },
+    },
   });
 }
 

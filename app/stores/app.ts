@@ -34,7 +34,6 @@ export const useAppStore = defineStore("app", {
   getters: {
     steps: () => steps,
     stepNames: () => steps.map((step) => step.name),
-    isVisible: () => true,
   },
   actions: {
     setNavigationVisible(value: boolean) {

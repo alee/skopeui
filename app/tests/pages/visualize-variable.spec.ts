@@ -18,21 +18,25 @@ import VisualizePage from "@/pages/dataset/[id]/visualize/[variable].vue";
 const routeParams = { id: "paleocar", variable: "tasmax" };
 let datasetStore: any;
 let appStore: any;
-let legacyActions: any;
-
-vi.mock("vue-router", () => ({
-  useRoute: () => ({
-    params: routeParams,
-    fullPath: `/dataset/${routeParams.id}/visualize/${routeParams.variable}`,
-  }),
-}));
+let metadataActions: any;
+let studyArea: any;
+let extractionStore: any;
 
 vi.mock("@/components/dataset/Map.client.vue", () => ({
   default: {
     name: "MapStub",
-    props: ["mapEngine", "displayRaster"],
+    props: ["displayRaster", "step"],
     template:
-      '<div data-test="map" :data-map-engine="mapEngine" :data-display-raster="String(displayRaster)">map</div>',
+      '<div data-test="map" :data-display-raster="String(displayRaster)">map<slot name="footer" /></div>',
+  },
+}));
+
+vi.mock("@/components/dataset/RasterPlaybackControls.vue", () => ({
+  default: {
+    name: "RasterPlaybackControlsStub",
+    props: ["stepSelected", "isPlaying", "canPlay", "isStepLoading"],
+    emits: ["step-selected", "toggle-playback"],
+    template: '<div data-test="map-playback" />',
   },
 }));
 
@@ -61,6 +65,10 @@ vi.mock("@/stores/dataset", () => ({
   useDatasetStore: () => datasetStore,
 }));
 
+vi.mock("@/stores/analysis", () => ({
+  useAnalysisStore: () => ({}),
+}));
+
 vi.mock("@/stores/app", () => ({
   useAppStore: () => appStore,
 }));
@@ -70,12 +78,18 @@ vi.mock("@/stores/messages", () => ({
     error: vi.fn(),
     info: vi.fn(),
     dismiss: vi.fn(),
-    clearMessages: vi.fn(),
   }),
 }));
 
-vi.mock("@/composables/useLegacyStoreActions", () => ({
-  useLegacyStoreActions: () => legacyActions,
+vi.mock("@/stores/extraction", () => ({
+  useExtractionStore: () => extractionStore,
+}));
+
+vi.mock("@/composables/useDatasetMetadata", () => ({
+  useDatasetMetadata: () => metadataActions,
+}));
+vi.mock("@/composables/useStudyArea", () => ({
+  useStudyArea: () => studyArea,
 }));
 
 const layoutStubs = {
@@ -91,19 +105,19 @@ const layoutStubs = {
 
 describe("route /dataset/:id/visualize/:variable", () => {
   beforeEach(() => {
+    vi.stubGlobal("useRoute", () => ({
+      params: routeParams,
+      fullPath: `/dataset/${routeParams.id}/visualize/${routeParams.variable}`,
+    }));
     installNuxtTestGlobals();
 
     datasetStore = createDatasetStore({ hasGeoJson: true });
     appStore = createAppStore();
-    legacyActions = {
-      initializeDataset: vi.fn(async () => true),
-      initializeDatasetGeoJson: vi.fn(),
-      resolveTimeSeries: vi.fn(
-        async (_jobId: string | undefined, _data: any) => ({
-          newJobId: "test-job-id",
-          response: timeSeriesResponseFixture,
-        }),
-      ),
+    metadataActions = { initializeDataset: vi.fn(async () => true) };
+    studyArea = { restore: vi.fn() };
+    extractionStore = {
+      beginRequest: () => () => true,
+      resolveTimeSeries: vi.fn(async () => timeSeriesResponseFixture),
     };
   });
 
@@ -122,11 +136,74 @@ describe("route /dataset/:id/visualize/:variable", () => {
     const map = page.find('[data-test="map"]');
 
     expect(page.findComponent({ name: "MapStub" }).exists()).toBe(true);
-    expect(map.attributes("data-map-engine")).toBe("maplibre");
     expect(map.attributes("data-display-raster")).toBe("true");
+    expect(map.find('[data-test="map-playback"]').exists()).toBe(true);
     expect(page.findComponent({ name: "TimeSeriesPlotStub" }).exists()).toBe(
       true,
     );
+  });
+
+  it("[behavior] map controls select a frame and reflect when it is ready", async () => {
+    const wrapper = await mountWithSuspense(VisualizePage, {
+      global: { stubs: layoutStubs },
+    });
+    await flushPromises();
+    const map = wrapper.findComponent({ name: "MapStub" });
+    const controls = wrapper.findComponent({
+      name: "RasterPlaybackControlsStub",
+    });
+    controls.vm.$emit("step-selected", 2);
+    await nextTick();
+    expect(map.props("step")).toBe(2);
+    expect(controls.props("isStepLoading")).toBe(true);
+    map.vm.$emit("step-ready", 2);
+    await nextTick();
+    expect(controls.props("stepSelected")).toBe(2);
+    expect(controls.props("isStepLoading")).toBe(false);
+    wrapper.unmount();
+  });
+
+  it("[behavior] restores the last selected map year on return", async () => {
+    datasetStore.metadata = {
+      ...datasetStore.metadata,
+      time: {
+        kind: "regular",
+        origin: "0001",
+        end: "0003",
+        step: "P1Y",
+        count: 3,
+      },
+    };
+    const mountPage = () =>
+      mountWithSuspense(VisualizePage, { global: { stubs: layoutStubs } });
+    const first = await mountPage();
+    await flushPromises();
+    first
+      .findComponent({ name: "RasterPlaybackControlsStub" })
+      .vm.$emit("step-selected", 2);
+    await nextTick();
+    first.unmount();
+    expect(datasetStore.visualizeStep).toBe(2);
+    const second = await mountPage();
+    await flushPromises();
+    expect(second.findComponent({ name: "MapStub" }).props("step")).toBe(2);
+    second.unmount();
+  });
+
+  it("[behavior] offers an edit-area link that returns to visualize", async () => {
+    const wrapper = await mountWithSuspense(VisualizePage, {
+      global: { stubs: layoutStubs },
+    });
+    await flushPromises();
+    const edit = wrapper
+      .findAll("button")
+      .find((button) => button.text().includes("Edit study area"))!;
+    expect(JSON.parse(edit.attributes("data-to")!)).toEqual({
+      name: "dataset-id",
+      params: { id: "paleocar" },
+      query: { returnTo: "visualize" },
+    });
+    wrapper.unmount();
   });
 
   it("[behavior] drops the analyze link instead of throwing while leaving", async () => {
@@ -168,7 +245,7 @@ describe("route /dataset/:id/visualize/:variable", () => {
       }),
     );
     expect(datasetStore.setTimeSeriesLoaded).toHaveBeenCalled();
-    expect(legacyActions.resolveTimeSeries).toHaveBeenCalled();
+    expect(extractionStore.resolveTimeSeries).toHaveBeenCalled();
     expect(appStore.setVisited).toHaveBeenCalled();
   });
 
@@ -192,6 +269,6 @@ describe("route /dataset/:id/visualize/:variable", () => {
     await nextTick();
     await flushPromises();
 
-    expect(legacyActions.resolveTimeSeries).toHaveBeenCalledTimes(2);
+    expect(extractionStore.resolveTimeSeries).toHaveBeenCalledTimes(2);
   });
 });

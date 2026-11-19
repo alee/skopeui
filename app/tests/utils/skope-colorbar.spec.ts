@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { SkopeColorbar, tickValues } from "@/utils/SkopeColorbar";
+import { SkopeColorbar, tickValues } from "@/utils/skopeColorbar";
 
 function render(options: ConstructorParameters<typeof SkopeColorbar>[0]) {
   const colorbar = new SkopeColorbar(options);

@@ -1,3 +1,4 @@
+import JSZip from "jszip";
 import { flushPromises } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -17,14 +18,12 @@ import AnalyzePage from "@/pages/dataset/[id]/analyze/[variable].vue";
 const routeParams = { id: "paleocar", variable: "tasmax" };
 let analysisStore: any;
 let datasetStore: any;
-let legacyActions: any;
+let metadataActions: any;
+let studyArea: any;
+let extractionStore: any;
 let messagesStore: any;
-
-vi.mock("vue-router", () => ({
-  useRoute: () => ({
-    params: routeParams,
-  }),
-}));
+let saveAs: ReturnType<typeof vi.fn>;
+const imageExport = vi.hoisted(() => vi.fn());
 
 vi.mock("vuetify", () => ({
   useDisplay: () => ({ mdAndDown: false }),
@@ -34,11 +33,12 @@ vi.mock("@/components/dataset/TimeSeriesPlot.vue", () => ({
   default: {
     name: "TimeSeriesPlotStub",
     template: '<div data-test="timeseries">timeseries</div>',
+    emits: ["plot-ready"],
+    mounted(this: { $emit: (event: "plot-ready", ready: boolean) => void }) {
+      this.$emit("plot-ready", true);
+    },
     methods: {
-      getTimeSeriesPlotImage: async () => ({
-        png: "data:image/png",
-        svg: "data:image/svg+xml",
-      }),
+      getTimeSeriesPlotImage: (traces: unknown) => imageExport(traces),
     },
   },
 }));
@@ -69,8 +69,15 @@ vi.mock("@/stores/messages", () => ({
   useMessagesStore: () => messagesStore,
 }));
 
-vi.mock("@/composables/useLegacyStoreActions", () => ({
-  useLegacyStoreActions: () => legacyActions,
+vi.mock("@/stores/extraction", () => ({
+  useExtractionStore: () => extractionStore,
+}));
+
+vi.mock("@/composables/useDatasetMetadata", () => ({
+  useDatasetMetadata: () => metadataActions,
+}));
+vi.mock("@/composables/useStudyArea", () => ({
+  useStudyArea: () => studyArea,
 }));
 
 const layoutStubs = {
@@ -78,30 +85,52 @@ const layoutStubs = {
   "v-row": { template: "<div><slot /></div>" },
   "v-col": { template: "<div><slot /></div>" },
   "v-form": {
+    methods: { validate: async () => ({ valid: true }) },
     props: ["modelValue"],
     emits: ["update:modelValue"],
     template: '<form data-test="analysis-form"><slot /></form>',
   },
   "v-data-table": { template: '<div data-test="stats-table"></div>' },
-  "v-select": { template: '<div data-test="select"></div>' },
-  "v-text-field": { template: '<input data-test="input" />' },
+  "v-select": {
+    props: ["modelValue", "items", "label"],
+    emits: ["update:modelValue"],
+    template: `<select data-test="select" :aria-label="label" :value="modelValue"
+      @change="$emit('update:modelValue', $event.target.value)">
+      <option v-for="item in items" :key="item.id" :value="item.id">{{ item.label }}</option>
+    </select>`,
+  },
+  "v-text-field": {
+    props: ["modelValue", "label"],
+    emits: ["update:modelValue"],
+    template: `<input data-test="input" :aria-label="label" :value="modelValue"
+      @input="$emit('update:modelValue', $event.target.value)" />`,
+  },
   "v-icon": { template: "<i><slot /></i>" },
   "v-btn": {
-    props: ["to"],
+    props: ["to", "disabled", "loading"],
     // Declared, so a click runs the page's handler once, not also as a
     // native listener.
     emits: ["click"],
     template:
-      '<button data-test="action-btn" :data-to="to && JSON.stringify(to)" @click="$emit(\'click\')"><slot /></button>',
+      '<button data-test="action-btn" :disabled="disabled" :data-to="to && JSON.stringify(to)" @click="$emit(\'click\')"><slot /></button>',
   },
 };
 
 describe("route /dataset/:id/analyze/:variable", () => {
   beforeEach(() => {
+    vi.stubGlobal("useRoute", () => ({ params: routeParams }));
+    saveAs = vi.fn();
+    imageExport
+      .mockReset()
+      .mockResolvedValue({ png: "data:image/png", svg: "data:image/svg+xml" });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ blob: async () => new Blob(["image"]) })),
+    );
     installNuxtTestGlobals({
       nuxtApp: {
         $download: {
-          saveAs: vi.fn(),
+          saveAs,
         },
       },
     });
@@ -116,17 +145,12 @@ describe("route /dataset/:id/analyze/:variable", () => {
       warning: vi.fn(),
       info: vi.fn(),
       dismiss: vi.fn(),
-      clearMessages: vi.fn(),
     };
-    legacyActions = {
-      initializeDataset: vi.fn(async () => true),
-      initializeDatasetGeoJson: vi.fn(),
-      resolveTimeSeries: vi.fn(
-        async (_jobId: string | undefined, _data: any) => ({
-          newJobId: "test-job-id",
-          response: timeSeriesResponseFixture,
-        }),
-      ),
+    metadataActions = { initializeDataset: vi.fn(async () => true) };
+    studyArea = { restore: vi.fn() };
+    extractionStore = {
+      beginRequest: () => () => true,
+      resolveTimeSeries: vi.fn(async () => timeSeriesResponseFixture),
     };
   });
 
@@ -149,6 +173,135 @@ describe("route /dataset/:id/analyze/:variable", () => {
     );
   });
 
+  it("[behavior] enables Download only after the current result and plot are ready", async () => {
+    let finish!: (value: unknown) => void;
+    extractionStore.resolveTimeSeries.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const wrapper = await mountWithSuspense(AnalyzePage, {
+      global: { stubs: layoutStubs },
+    });
+    await flushPromises();
+    const download = wrapper
+      .findAll("button")
+      .find((button) => button.text().includes("Download"))!;
+    expect(download.attributes("disabled")).toBeDefined();
+    finish(timeSeriesResponseFixture);
+    await flushPromises();
+    expect(download.attributes("disabled")).toBeUndefined();
+    const plot = wrapper.findComponent({ name: "TimeSeriesPlotStub" });
+    plot.vm.$emit("plot-ready", false);
+    await flushPromises();
+    expect(download.attributes("disabled")).toBeDefined();
+    plot.vm.$emit("plot-ready", true);
+    extractionStore.resolveTimeSeries.mockRejectedValueOnce(
+      new Error("failed"),
+    );
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text().includes("Update"))!
+      .trigger("click");
+    await flushPromises();
+    expect(download.attributes("disabled")).toBeDefined();
+    expect(saveAs).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
+  it("[behavior] finishes a precise, consistent archive after the active selection changes", async () => {
+    const result = JSON.parse(JSON.stringify(timeSeriesResponseFixture));
+    result.summary_stats = [
+      {
+        name: "Original",
+        mean: 1.23456789012345,
+        median: null,
+        stdev: 0.000000123,
+      },
+    ];
+    result.series[0].values = [1.23456789012345, null, 3];
+    extractionStore.resolveTimeSeries.mockResolvedValueOnce(result);
+    const wrapper = await mountWithSuspense(AnalyzePage, {
+      global: { stubs: layoutStubs },
+    });
+    await flushPromises();
+    analysisStore.summaryStatistics = [
+      { name: "Original", mean: "1.23", median: "null", stdev: "0.00" },
+    ];
+    const expectedRequest = JSON.parse(
+      JSON.stringify(analysisStore.completedRequest),
+    );
+    let finishImages!: (images: unknown) => void;
+    imageExport.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishImages = resolve;
+        }),
+    );
+    const download = wrapper
+      .findAll("button")
+      .find((button) => button.text().includes("Download"))!;
+    await download.trigger("click");
+    expect(download.attributes("disabled")).toBeDefined();
+    await download.trigger("click");
+    expect(imageExport).toHaveBeenCalledTimes(1);
+    datasetStore.geoJson = { type: "Point", coordinates: [0, 0] };
+    analysisStore.requestData = { ...expectedRequest, dataset_id: "other" };
+    analysisStore.response = { ...result, summary_stats: [] };
+    wrapper.unmount();
+    finishImages({ png: "data:image/png", svg: "data:image/svg+xml" });
+    await vi.waitFor(() => expect(saveAs).toHaveBeenCalledTimes(1));
+    const [blob, filename] = saveAs.mock.calls[0]!;
+    expect(filename).toBe("paleocar_tasmax.zip");
+    const bytes = await new Promise<ArrayBuffer>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as ArrayBuffer);
+      reader.onerror = reject;
+      reader.readAsArrayBuffer(blob);
+    });
+    const zip = await JSZip.loadAsync(bytes);
+    expect(
+      JSON.parse(await zip.file("skope-request.json")!.async("string")),
+    ).toEqual(expectedRequest);
+    expect(
+      JSON.parse(await zip.file("study-area.geojson")!.async("string")),
+    ).toEqual(expectedRequest.selected_area);
+    expect(
+      JSON.parse(await zip.file("summary-statistics.json")!.async("string")),
+    ).toEqual(result.summary_stats);
+    expect(
+      JSON.parse(await zip.file("time-series.json")!.async("string"))[0].y,
+    ).toEqual([1.23456789012345, null, 3]);
+    expect(await zip.file("time-series.csv")!.async("string")).toContain(
+      "1.23456789012345",
+    );
+    expect(await zip.file("plot.png")!.async("string")).toBe("image");
+    expect(await zip.file("plot.svg")!.async("string")).toBe("image");
+    expect(await zip.file("README.md")!.async("string")).toContain(
+      "paleocar / tasmax",
+    );
+  });
+
+  it("[behavior] reports export failures and allows retrying", async () => {
+    const wrapper = await mountWithSuspense(AnalyzePage, {
+      global: { stubs: layoutStubs },
+    });
+    await flushPromises();
+    imageExport.mockRejectedValueOnce(new Error("image failed"));
+    const download = wrapper
+      .findAll("button")
+      .find((button) => button.text().includes("Download"))!;
+    await download.trigger("click");
+    await flushPromises();
+    expect(messagesStore.error).toHaveBeenCalledWith(
+      "Unable to prepare the download. Please try again.",
+    );
+    expect(saveAs).not.toHaveBeenCalled();
+    expect(download.attributes("disabled")).toBeUndefined();
+    wrapper.unmount();
+  });
+
   it("[behavior] submits updated request data when Update is clicked", async () => {
     const wrapper = await mountWithSuspense(AnalyzePage, {
       global: { stubs: layoutStubs },
@@ -157,7 +310,7 @@ describe("route /dataset/:id/analyze/:variable", () => {
 
     await flushPromises();
     // The first analysis runs on mount; Update must run another.
-    expect(legacyActions.resolveTimeSeries).toHaveBeenCalledTimes(1);
+    expect(extractionStore.resolveTimeSeries).toHaveBeenCalledTimes(1);
 
     const updateButton = page
       .findAll('[data-test="action-btn"]')
@@ -173,17 +326,57 @@ describe("route /dataset/:id/analyze/:variable", () => {
       zonal_statistic: "mean",
       time_range: { gte: "0001-01-01", lte: "0003-01-01" },
     });
-    expect(legacyActions.resolveTimeSeries).toHaveBeenCalledTimes(2);
-    expect(legacyActions.resolveTimeSeries).toHaveBeenLastCalledWith(
-      "test-job-id",
-      request,
+    expect(extractionStore.resolveTimeSeries).toHaveBeenCalledTimes(2);
+    expect(extractionStore.resolveTimeSeries).toHaveBeenLastCalledWith(request);
+  });
+
+  it("[behavior] restores unsubmitted analysis edits after leaving and returning", async () => {
+    const mountPage = () =>
+      mountWithSuspense(AnalyzePage, { global: { stubs: layoutStubs } });
+    const first = await mountPage();
+    await flushPromises();
+    await first
+      .find('[aria-label="Select a smoothing option"]')
+      .setValue("centeredAverage");
+    await first.find('[aria-label="Smoothing window"]').setValue("19");
+    await first
+      .find('[aria-label="Select a transformation option"]')
+      .setValue("zscoreMoving");
+    await first.find('[aria-label="Transform window"]').setValue("37");
+    expect(analysisStore.setRequestData).not.toHaveBeenCalled();
+    first.unmount();
+    expect(analysisStore.formDrafts["paleocar:tasmax"].smoothingOption).toBe(
+      "centeredAverage",
     );
+
+    const second = await mountPage();
+    await flushPromises();
+    expect(
+      (
+        second.find('[aria-label="Select a smoothing option"]')
+          .element as HTMLSelectElement
+      ).value,
+    ).toBe("centeredAverage");
+    expect(
+      (
+        second.find('[aria-label="Smoothing window"]')
+          .element as HTMLInputElement
+      ).value,
+    ).toBe("19");
+    expect(
+      (
+        second.find('[aria-label="Transform window"]')
+          .element as HTMLInputElement
+      ).value,
+    ).toBe("37");
+    expect(analysisStore.setRequestData).not.toHaveBeenCalled();
+    second.unmount();
   });
 
   it("[behavior] shows the API's reason for a 422 as a warning", async () => {
     const reason =
       "The z-score's reference period [0450, 0500] has 0 time steps with values; it needs at least 2. Choose other years.";
-    legacyActions.resolveTimeSeries.mockRejectedValueOnce(
+    extractionStore.resolveTimeSeries.mockRejectedValueOnce(
       Object.assign(new Error("Request failed with status 422"), {
         response: { status: 422, data: { detail: reason } },
       }),
@@ -204,14 +397,14 @@ describe("route /dataset/:id/analyze/:variable", () => {
     await mountWithSuspense(AnalyzePage, { global: { stubs: layoutStubs } });
     await flushPromises();
     expect(analysisStore.setDefaultRequestData).not.toHaveBeenCalled();
-    expect(legacyActions.resolveTimeSeries).not.toHaveBeenCalled();
+    expect(extractionStore.resolveTimeSeries).not.toHaveBeenCalled();
 
     datasetStore.metadata = metadata;
     await flushPromises();
 
-    expect(legacyActions.initializeDatasetGeoJson).toHaveBeenCalled();
+    expect(studyArea.restore).toHaveBeenCalled();
     expect(analysisStore.setDefaultRequestData).toHaveBeenCalledTimes(1);
-    expect(legacyActions.resolveTimeSeries).toHaveBeenCalledTimes(1);
+    expect(extractionStore.resolveTimeSeries).toHaveBeenCalledTimes(1);
     expect(datasetStore.setAreaSummary).toHaveBeenCalledWith(
       timeSeriesResponseFixture.n_cells,
       timeSeriesResponseFixture.area,

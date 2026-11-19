@@ -1,16 +1,15 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import StepBar from "@/components/StepBar.vue";
+import metadataFixture from "@/tests/fixtures/metadata-1.0.0.json";
 import { useDatasetStore } from "@/stores/dataset";
 
 const route = vi.hoisted(() => ({
   name: "dataset-id",
   params: {} as Record<string, string>,
 }));
-
-vi.mock("vue-router", () => ({ useRoute: () => route }));
 
 const VBtnStub = {
   props: ["to", "disabled", "variant"],
@@ -35,6 +34,7 @@ function stepState(wrapper: ReturnType<typeof mountBar>) {
 
 describe("StepBar", () => {
   beforeEach(() => {
+    vi.stubGlobal("useRoute", () => route);
     setActivePinia(createPinia());
     route.params = { id: "paleocar_v3" };
   });
@@ -61,6 +61,7 @@ describe("StepBar", () => {
     route.name = "dataset-id-visualize-variable";
     route.params = { id: "paleocar_v3", variable: "ppt_annual" };
     const datasetStore = useDatasetStore();
+    datasetStore.setMetadata(metadataFixture.datasets[0] as any);
     datasetStore.setVariable("ppt_annual");
     datasetStore.setGeoJson({
       type: "Feature",
@@ -74,7 +75,7 @@ describe("StepBar", () => {
     expect(state.map((s) => s.complete)).toEqual([true, true, false, false]);
     expect(state.map((s) => s.current)).toEqual([false, false, true, false]);
     expect(state.every((s) => !s.disabled)).toBe(true);
-    const analyze = wrapper.findAll('[data-test="workflow-step"]')[3];
+    const analyze = wrapper.findAll('[data-test="workflow-step"]')[3]!;
     expect(JSON.parse(analyze.attributes("data-to")!)).toMatchObject({
       name: "dataset-id-analyze-variable",
     });
@@ -93,11 +94,13 @@ describe("StepBar", () => {
     const wrapper = mountBar();
     await flushPromises();
 
-    const [, , visualize, analyze] = wrapper.findAll(
-      '[data-test="workflow-step"]',
-    );
+    const items = wrapper.findAll('[data-test="workflow-step"]');
+    const visualize = items[2]!;
+    const analyze = items[3]!;
     expect(visualize.attributes("data-to")).toBeUndefined();
     expect(visualize.attributes("disabled")).toBeDefined();
     expect(analyze.attributes("disabled")).toBeDefined();
   });
 });
+
+afterEach(() => vi.unstubAllGlobals());

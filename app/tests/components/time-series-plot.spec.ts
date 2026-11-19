@@ -6,15 +6,11 @@ import TimeSeriesPlot from "@/components/dataset/TimeSeriesPlot.vue";
 import { useDatasetStore } from "@/stores/dataset";
 import metadataFixture from "@/tests/fixtures/metadata-1.0.0.json";
 
-vi.mock("vue-router", () => ({
-  useRoute: () => ({ params: { id: "paleocar_v3" } }),
-}));
-
 vi.mock("@/components/dataset/PlotlyClient.vue", () => ({
   __esModule: true,
   default: {
     name: "PlotlyStub",
-    props: ["data", "layout", "options"],
+    props: ["data", "layout", "options", "shapes"],
     template: "<div />",
   },
 }));
@@ -121,6 +117,21 @@ describe("TimeSeriesPlot range submission", () => {
     wrapper.unmount();
   });
 
+  it("keeps an unsubmitted time range when moving between steps", async () => {
+    const first = mountPlot();
+    await first.find(".time-series-range").trigger("click");
+    await first.find(".time-series-range input").setValue("1600");
+    first.unmount();
+    const second = mountPlot();
+    await flushPromises();
+    expect(
+      (second.find(".time-series-range input").element as HTMLInputElement)
+        .value,
+    ).toBe("1600");
+    expect(useDatasetStore().temporalRange).toEqual([1500, 1800]);
+    second.unmount();
+  });
+
   it("applies a valid draft on Enter without requiring blur first", async () => {
     const store = useDatasetStore();
     const wrapper = mountPlot();
@@ -167,9 +178,14 @@ describe("TimeSeriesPlot typed timestep", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     const store = useDatasetStore();
-    store.metadata = {
-      time: { kind: "regular", origin: "1001", end: "2000", step: "P1Y" },
-    } as any;
+    store.setMetadata({
+      ...metadataFixture.datasets[0],
+      time: {
+        ...metadataFixture.datasets[0]!.time,
+        origin: "1001",
+        end: "2000",
+      },
+    } as any);
     store.setTemporalRange([1500, 1600]);
   });
 
@@ -238,11 +254,17 @@ describe("TimeSeriesPlot timeline bounds", () => {
     await flushPromises();
     expect(layout().xaxis.range).toEqual([900, 1100]);
     expect(layout().xaxis.autorange).toBe(false);
-    expect(layout().shapes).toEqual([]);
+    expect(
+      wrapper.findComponent({ name: "PlotlyStub" }).props("shapes"),
+    ).toEqual([]);
+    const previousLayout = layout();
 
     await wrapper.setProps({ stepSelected: 900 });
     expect(layout().xaxis.range).toEqual([900, 1100]);
-    expect(layout().shapes[0]).toMatchObject({ x0: 900, x1: 900 });
+    expect(
+      wrapper.findComponent({ name: "PlotlyStub" }).props("shapes")[0],
+    ).toMatchObject({ x0: 900, x1: 900 });
+    expect(layout()).toBe(previousLayout);
     wrapper.unmount();
   });
 
@@ -291,7 +313,13 @@ describe("TimeSeriesPlot axis labels", () => {
 
   async function layoutFor(title: string, unit: string) {
     const store = useDatasetStore();
-    store.variable = { id: "v", title, unit } as any;
+    store.setMetadata({
+      ...metadataFixture.datasets[0],
+      default_variable: "v",
+      variables: [
+        { ...metadataFixture.datasets[0]!.variables[0]!, id: "v", title, unit },
+      ],
+    } as any);
     const wrapper = mountPlot();
     await flushPromises();
     return wrapper.findComponent({ name: "PlotlyStub" }).props("layout");
@@ -312,4 +340,24 @@ describe("TimeSeriesPlot axis labels", () => {
       "Water-year (Oct–Sept) Cotton<br>Growing Degree Days (°C GDD)",
     );
   });
+});
+
+it("exports through the registered public API and rejects once it is removed", async () => {
+  setActivePinia(createPinia());
+  const wrapper = mountPlot();
+  await flushPromises();
+  const child = wrapper.findComponent({ name: "PlotlyStub" });
+  const traces = [{ name: "Original", x: [1], y: [2] }];
+  const toImages = vi.fn().mockResolvedValue({ svg: "svg", png: "png" });
+  child.vm.$emit("api-ready", { toImages });
+  await expect(wrapper.vm.getTimeSeriesPlotImage(traces)).resolves.toEqual({
+    svg: "svg",
+    png: "png",
+  });
+  expect(toImages).toHaveBeenCalledWith(traces);
+  child.vm.$emit("api-ready", null);
+  await expect(wrapper.vm.getTimeSeriesPlotImage(traces)).rejects.toThrow(
+    "not ready",
+  );
+  wrapper.unmount();
 });

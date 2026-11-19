@@ -1,6 +1,6 @@
 <template>
   <v-dialog v-model="showMetadata" max-width="800px">
-    <template #activator="{ props }">
+    <template #activator="{ props: dialogProps }">
       <v-tooltip
         location="bottom"
         text="View dataset metadata with important details on uncertainty and provenance"
@@ -13,7 +13,7 @@
             variant="text"
             class="ml-2"
             aria-label="Dataset details"
-            v-bind="{ ...props, ...tooltipProps }"
+            v-bind="{ ...dialogProps, ...tooltipProps }"
           >
             <v-icon color="primary">mdi-information-outline</v-icon>
           </v-btn>

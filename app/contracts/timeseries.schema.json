@@ -1,0 +1,1772 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TimeseriesContracts",
+  "x-skope-source": "skope-api@812e9b3",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "TimeseriesRequest": {
+      "$ref": "#/$defs/TimeseriesRequest"
+    },
+    "TimeseriesAnalyzeRequest": {
+      "$ref": "#/$defs/TimeseriesAnalyzeRequest"
+    },
+    "TimeseriesResponse": {
+      "$ref": "#/$defs/TimeseriesResponse"
+    },
+    "JobStatusResponse": {
+      "$ref": "#/$defs/JobStatusResponse"
+    }
+  },
+  "$defs": {
+    "TimeseriesRequest": {
+      "properties": {
+        "dataset_id": {
+          "description": "Dataset ID",
+          "pattern": "^[\\w-]+$",
+          "title": "Dataset Id",
+          "type": "string"
+        },
+        "max_processing_time": {
+          "default": 20000,
+          "maximum": 20000,
+          "minimum": 0,
+          "title": "Max Processing Time",
+          "type": "integer"
+        },
+        "requested_series_options": {
+          "items": {
+            "$ref": "#/$defs/SeriesOptions"
+          },
+          "maxItems": 10,
+          "minItems": 1,
+          "title": "Requested Series Options",
+          "type": "array"
+        },
+        "selected_area": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SkopePointModel"
+            },
+            {
+              "$ref": "#/$defs/SkopePolygonModel"
+            },
+            {
+              "$ref": "#/$defs/SkopeFeatureModel"
+            },
+            {
+              "$ref": "#/$defs/SkopeFeatureCollectionModel"
+            }
+          ],
+          "title": "Selected Area"
+        },
+        "time_range": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TimeRange"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "transform": {
+          "discriminator": {
+            "mapping": {
+              "NoTransform": "#/$defs/NoTransform",
+              "ZScoreFixedInterval": "#/$defs/ZScoreFixedInterval",
+              "ZScoreMovingInterval": "#/$defs/ZScoreMovingInterval"
+            },
+            "propertyName": "type"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/ZScoreMovingInterval"
+            },
+            {
+              "$ref": "#/$defs/ZScoreFixedInterval"
+            },
+            {
+              "$ref": "#/$defs/NoTransform"
+            }
+          ],
+          "title": "Transform"
+        },
+        "variable_id": {
+          "description": "Variable ID",
+          "pattern": "^[\\w-]+$",
+          "title": "Variable Id",
+          "type": "string"
+        },
+        "zonal_statistic": {
+          "$ref": "#/$defs/ZonalStatistic"
+        }
+      },
+      "required": [
+        "requested_series_options",
+        "dataset_id",
+        "variable_id",
+        "selected_area",
+        "zonal_statistic",
+        "transform",
+        "time_range"
+      ],
+      "title": "TimeseriesRequest",
+      "type": "object"
+    },
+    "SeriesOptions": {
+      "example": {
+        "name": "transformed",
+        "smoother": {
+          "method": "centered",
+          "type": "MovingAverageSmoother",
+          "width": 3
+        }
+      },
+      "properties": {
+        "name": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[\\w -]+$",
+          "title": "Name",
+          "type": "string"
+        },
+        "smoother": {
+          "discriminator": {
+            "mapping": {
+              "MovingAverageSmoother": "#/$defs/MovingAverageSmoother",
+              "NoSmoother": "#/$defs/NoSmoother"
+            },
+            "propertyName": "type"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/NoSmoother"
+            },
+            {
+              "$ref": "#/$defs/MovingAverageSmoother"
+            }
+          ],
+          "title": "Smoother"
+        }
+      },
+      "required": [
+        "name",
+        "smoother"
+      ],
+      "title": "SeriesOptions",
+      "type": "object"
+    },
+    "MovingAverageSmoother": {
+      "example": {
+        "method": "centered",
+        "type": "MovingAverageSmoother",
+        "width": 3
+      },
+      "properties": {
+        "method": {
+          "$ref": "#/$defs/WindowType"
+        },
+        "type": {
+          "const": "MovingAverageSmoother",
+          "default": "MovingAverageSmoother",
+          "title": "Type",
+          "type": "string"
+        },
+        "width": {
+          "description": "Number of time steps from current time to use in the moving window; at most the dataset's number of time steps",
+          "minimum": 1,
+          "title": "Width",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "method",
+        "width"
+      ],
+      "title": "MovingAverageSmoother",
+      "type": "object"
+    },
+    "WindowType": {
+      "enum": [
+        "centered",
+        "trailing"
+      ],
+      "title": "WindowType",
+      "type": "string"
+    },
+    "NoSmoother": {
+      "example": {
+        "type": "NoSmoother"
+      },
+      "properties": {
+        "type": {
+          "const": "NoSmoother",
+          "default": "NoSmoother",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "title": "NoSmoother",
+      "type": "object"
+    },
+    "SkopePointModel": {
+      "example": {
+        "coordinates": [
+          -120,
+          42.5
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "bbox": {
+          "anyOf": [
+            {
+              "maxItems": 4,
+              "minItems": 4,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "maxItems": 6,
+              "minItems": 6,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Bbox"
+        },
+        "coordinates": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Position2D"
+            },
+            {
+              "$ref": "#/$defs/Position3D"
+            }
+          ],
+          "title": "Coordinates"
+        },
+        "type": {
+          "const": "Point",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "coordinates"
+      ],
+      "title": "SkopePointModel",
+      "type": "object"
+    },
+    "Position2D": {
+      "maxItems": 2,
+      "minItems": 2,
+      "prefixItems": [
+        {
+          "title": "Longitude",
+          "type": "number"
+        },
+        {
+          "title": "Latitude",
+          "type": "number"
+        }
+      ],
+      "type": "array"
+    },
+    "Position3D": {
+      "maxItems": 3,
+      "minItems": 3,
+      "prefixItems": [
+        {
+          "title": "Longitude",
+          "type": "number"
+        },
+        {
+          "title": "Latitude",
+          "type": "number"
+        },
+        {
+          "title": "Altitude",
+          "type": "number"
+        }
+      ],
+      "type": "array"
+    },
+    "SkopePolygonModel": {
+      "properties": {
+        "bbox": {
+          "anyOf": [
+            {
+              "maxItems": 4,
+              "minItems": 4,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "maxItems": 6,
+              "minItems": 6,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Bbox"
+        },
+        "coordinates": {
+          "items": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Position2D"
+                },
+                {
+                  "$ref": "#/$defs/Position3D"
+                }
+              ]
+            },
+            "minItems": 4,
+            "type": "array"
+          },
+          "title": "Coordinates",
+          "type": "array"
+        },
+        "type": {
+          "const": "Polygon",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "coordinates"
+      ],
+      "title": "SkopePolygonModel",
+      "type": "object"
+    },
+    "SkopeFeatureModel": {
+      "properties": {
+        "bbox": {
+          "anyOf": [
+            {
+              "maxItems": 4,
+              "minItems": 4,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "maxItems": 6,
+              "minItems": 6,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Bbox"
+        },
+        "geometry": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "GeometryCollection": "#/$defs/GeometryCollection",
+                  "LineString": "#/$defs/LineString",
+                  "MultiLineString": "#/$defs/MultiLineString",
+                  "MultiPoint": "#/$defs/MultiPoint",
+                  "MultiPolygon": "#/$defs/MultiPolygon",
+                  "Point": "#/$defs/Point",
+                  "Polygon": "#/$defs/Polygon"
+                },
+                "propertyName": "type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/Point"
+                },
+                {
+                  "$ref": "#/$defs/MultiPoint"
+                },
+                {
+                  "$ref": "#/$defs/LineString"
+                },
+                {
+                  "$ref": "#/$defs/MultiLineString"
+                },
+                {
+                  "$ref": "#/$defs/Polygon"
+                },
+                {
+                  "$ref": "#/$defs/MultiPolygon"
+                },
+                {
+                  "$ref": "#/$defs/GeometryCollection"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Geometry"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Id"
+        },
+        "properties": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "$ref": "#/$defs/BaseModel"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Properties"
+        },
+        "type": {
+          "const": "Feature",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "geometry",
+        "properties"
+      ],
+      "title": "SkopeFeatureModel",
+      "type": "object"
+    },
+    "GeometryCollection": {
+      "description": "GeometryCollection Model",
+      "properties": {
+        "bbox": {
+          "anyOf": [
+            {
+              "maxItems": 4,
+              "minItems": 4,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "maxItems": 6,
+              "minItems": 6,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Bbox"
+        },
+        "geometries": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "GeometryCollection": "#/$defs/GeometryCollection",
+                "LineString": "#/$defs/LineString",
+                "MultiLineString": "#/$defs/MultiLineString",
+                "MultiPoint": "#/$defs/MultiPoint",
+                "MultiPolygon": "#/$defs/MultiPolygon",
+                "Point": "#/$defs/Point",
+                "Polygon": "#/$defs/Polygon"
+              },
+              "propertyName": "type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/Point"
+              },
+              {
+                "$ref": "#/$defs/MultiPoint"
+              },
+              {
+                "$ref": "#/$defs/LineString"
+              },
+              {
+                "$ref": "#/$defs/MultiLineString"
+              },
+              {
+                "$ref": "#/$defs/Polygon"
+              },
+              {
+                "$ref": "#/$defs/MultiPolygon"
+              },
+              {
+                "$ref": "#/$defs/GeometryCollection"
+              }
+            ]
+          },
+          "title": "Geometries",
+          "type": "array"
+        },
+        "type": {
+          "const": "GeometryCollection",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "geometries"
+      ],
+      "title": "GeometryCollection",
+      "type": "object"
+    },
+    "LineString": {
+      "description": "LineString Model",
+      "properties": {
+        "bbox": {
+          "anyOf": [
+            {
+              "maxItems": 4,
+              "minItems": 4,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "maxItems": 6,
+              "minItems": 6,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Bbox"
+        },
+        "coordinates": {
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Position2D"
+              },
+              {
+                "$ref": "#/$defs/Position3D"
+              }
+            ]
+          },
+          "minItems": 2,
+          "title": "Coordinates",
+          "type": "array"
+        },
+        "type": {
+          "const": "LineString",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "coordinates"
+      ],
+      "title": "LineString",
+      "type": "object"
+    },
+    "MultiLineString": {
+      "description": "MultiLineString Model",
+      "properties": {
+        "bbox": {
+          "anyOf": [
+            {
+              "maxItems": 4,
+              "minItems": 4,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "maxItems": 6,
+              "minItems": 6,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Bbox"
+        },
+        "coordinates": {
+          "items": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Position2D"
+                },
+                {
+                  "$ref": "#/$defs/Position3D"
+                }
+              ]
+            },
+            "minItems": 2,
+            "type": "array"
+          },
+          "title": "Coordinates",
+          "type": "array"
+        },
+        "type": {
+          "const": "MultiLineString",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "coordinates"
+      ],
+      "title": "MultiLineString",
+      "type": "object"
+    },
+    "MultiPoint": {
+      "description": "MultiPoint Model",
+      "properties": {
+        "bbox": {
+          "anyOf": [
+            {
+              "maxItems": 4,
+              "minItems": 4,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "maxItems": 6,
+              "minItems": 6,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Bbox"
+        },
+        "coordinates": {
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Position2D"
+              },
+              {
+                "$ref": "#/$defs/Position3D"
+              }
+            ]
+          },
+          "title": "Coordinates",
+          "type": "array"
+        },
+        "type": {
+          "const": "MultiPoint",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "coordinates"
+      ],
+      "title": "MultiPoint",
+      "type": "object"
+    },
+    "MultiPolygon": {
+      "description": "MultiPolygon Model",
+      "properties": {
+        "bbox": {
+          "anyOf": [
+            {
+              "maxItems": 4,
+              "minItems": 4,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "maxItems": 6,
+              "minItems": 6,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Bbox"
+        },
+        "coordinates": {
+          "items": {
+            "items": {
+              "items": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Position2D"
+                  },
+                  {
+                    "$ref": "#/$defs/Position3D"
+                  }
+                ]
+              },
+              "minItems": 4,
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "title": "Coordinates",
+          "type": "array"
+        },
+        "type": {
+          "const": "MultiPolygon",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "coordinates"
+      ],
+      "title": "MultiPolygon",
+      "type": "object"
+    },
+    "Point": {
+      "description": "Point Model",
+      "properties": {
+        "bbox": {
+          "anyOf": [
+            {
+              "maxItems": 4,
+              "minItems": 4,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "maxItems": 6,
+              "minItems": 6,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Bbox"
+        },
+        "coordinates": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Position2D"
+            },
+            {
+              "$ref": "#/$defs/Position3D"
+            }
+          ],
+          "title": "Coordinates"
+        },
+        "type": {
+          "const": "Point",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "coordinates"
+      ],
+      "title": "Point",
+      "type": "object"
+    },
+    "Polygon": {
+      "description": "Polygon Model",
+      "properties": {
+        "bbox": {
+          "anyOf": [
+            {
+              "maxItems": 4,
+              "minItems": 4,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "maxItems": 6,
+              "minItems": 6,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Bbox"
+        },
+        "coordinates": {
+          "items": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Position2D"
+                },
+                {
+                  "$ref": "#/$defs/Position3D"
+                }
+              ]
+            },
+            "minItems": 4,
+            "type": "array"
+          },
+          "title": "Coordinates",
+          "type": "array"
+        },
+        "type": {
+          "const": "Polygon",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "coordinates"
+      ],
+      "title": "Polygon",
+      "type": "object"
+    },
+    "BaseModel": {
+      "properties": {},
+      "title": "BaseModel",
+      "type": "object"
+    },
+    "SkopeFeatureCollectionModel": {
+      "properties": {
+        "bbox": {
+          "anyOf": [
+            {
+              "maxItems": 4,
+              "minItems": 4,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "maxItems": 6,
+              "minItems": 6,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Bbox"
+        },
+        "features": {
+          "items": {
+            "$ref": "#/$defs/Feature"
+          },
+          "title": "Features",
+          "type": "array"
+        },
+        "type": {
+          "const": "FeatureCollection",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "features"
+      ],
+      "title": "SkopeFeatureCollectionModel",
+      "type": "object"
+    },
+    "Feature": {
+      "description": "Feature Model",
+      "properties": {
+        "bbox": {
+          "anyOf": [
+            {
+              "maxItems": 4,
+              "minItems": 4,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "maxItems": 6,
+              "minItems": 6,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Bbox"
+        },
+        "geometry": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "GeometryCollection": "#/$defs/GeometryCollection",
+                  "LineString": "#/$defs/LineString",
+                  "MultiLineString": "#/$defs/MultiLineString",
+                  "MultiPoint": "#/$defs/MultiPoint",
+                  "MultiPolygon": "#/$defs/MultiPolygon",
+                  "Point": "#/$defs/Point",
+                  "Polygon": "#/$defs/Polygon"
+                },
+                "propertyName": "type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/Point"
+                },
+                {
+                  "$ref": "#/$defs/MultiPoint"
+                },
+                {
+                  "$ref": "#/$defs/LineString"
+                },
+                {
+                  "$ref": "#/$defs/MultiLineString"
+                },
+                {
+                  "$ref": "#/$defs/Polygon"
+                },
+                {
+                  "$ref": "#/$defs/MultiPolygon"
+                },
+                {
+                  "$ref": "#/$defs/GeometryCollection"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Geometry"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Id"
+        },
+        "properties": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "$ref": "#/$defs/BaseModel"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Properties"
+        },
+        "type": {
+          "const": "Feature",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "geometry",
+        "properties"
+      ],
+      "title": "Feature",
+      "type": "object"
+    },
+    "TimeRange": {
+      "example": {
+        "gte": "0001-02-05",
+        "lte": "0005-09-02"
+      },
+      "properties": {
+        "gte": {
+          "description": "Start time in ISO-8601 format",
+          "pattern": "^\\d{4}(?:-\\d{2}(?:-\\d{2}(?:T\\d{2}:\\d{2}:\\d{2}(?:Z|[+-]\\d{2}:\\d{2})?)?)?)?$",
+          "title": "Gte",
+          "type": "string"
+        },
+        "lte": {
+          "description": "End time in ISO-8601 format",
+          "pattern": "^\\d{4}(?:-\\d{2}(?:-\\d{2}(?:T\\d{2}:\\d{2}:\\d{2}(?:Z|[+-]\\d{2}:\\d{2})?)?)?)?$",
+          "title": "Lte",
+          "type": "string"
+        }
+      },
+      "required": [
+        "gte",
+        "lte"
+      ],
+      "title": "TimeRange",
+      "type": "object"
+    },
+    "NoTransform": {
+      "description": "No transformation to the timeseries - return raw values",
+      "example": {
+        "type": "NoTransform"
+      },
+      "properties": {
+        "type": {
+          "const": "NoTransform",
+          "default": "NoTransform",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "title": "NoTransform",
+      "type": "object"
+    },
+    "ZScoreFixedInterval": {
+      "description": "A Z-Score transform to the timeseries using a fixed interval",
+      "example": {
+        "type": "ZScoreFixedInterval"
+      },
+      "properties": {
+        "time_range": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TimeRange"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "type": {
+          "const": "ZScoreFixedInterval",
+          "default": "ZScoreFixedInterval",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "title": "ZScoreFixedInterval",
+      "type": "object"
+    },
+    "ZScoreMovingInterval": {
+      "description": "A moving Z-Score transform to the timeseries",
+      "example": {
+        "type": "ZScoreMovingInterval",
+        "width": 5
+      },
+      "properties": {
+        "type": {
+          "const": "ZScoreMovingInterval",
+          "default": "ZScoreMovingInterval",
+          "title": "Type",
+          "type": "string"
+        },
+        "width": {
+          "description": "Number of prior time steps to use in the moving window: at least 2, so the window has a spread, and fewer than the dataset's time steps",
+          "minimum": 2,
+          "title": "Width",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "width"
+      ],
+      "title": "ZScoreMovingInterval",
+      "type": "object"
+    },
+    "ZonalStatistic": {
+      "enum": [
+        "mean",
+        "median"
+      ],
+      "title": "ZonalStatistic",
+      "type": "string"
+    },
+    "TimeseriesAnalyzeRequest": {
+      "properties": {
+        "extraction_id": {
+          "description": "Job ID from POST /v3/timeseries/extract",
+          "title": "Extraction Id",
+          "type": "string"
+        },
+        "requested_series_options": {
+          "items": {
+            "$ref": "#/$defs/SeriesOptions"
+          },
+          "maxItems": 10,
+          "minItems": 1,
+          "title": "Requested Series Options",
+          "type": "array"
+        },
+        "time_range": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TimeRange"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "transform": {
+          "discriminator": {
+            "mapping": {
+              "NoTransform": "#/$defs/NoTransform",
+              "ZScoreFixedInterval": "#/$defs/ZScoreFixedInterval",
+              "ZScoreMovingInterval": "#/$defs/ZScoreMovingInterval"
+            },
+            "propertyName": "type"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/ZScoreMovingInterval"
+            },
+            {
+              "$ref": "#/$defs/ZScoreFixedInterval"
+            },
+            {
+              "$ref": "#/$defs/NoTransform"
+            }
+          ],
+          "title": "Transform"
+        },
+        "zonal_statistic": {
+          "$ref": "#/$defs/ZonalStatistic",
+          "default": "mean"
+        }
+      },
+      "required": [
+        "requested_series_options",
+        "extraction_id",
+        "transform"
+      ],
+      "title": "TimeseriesAnalyzeRequest",
+      "type": "object"
+    },
+    "TimeseriesResponse": {
+      "properties": {
+        "area": {
+          "description": "Area of cells in selected area in square meters",
+          "title": "Area",
+          "type": "number"
+        },
+        "dataset_id": {
+          "title": "Dataset Id",
+          "type": "string"
+        },
+        "n_cells": {
+          "description": "Number of cells in selected area",
+          "title": "N Cells",
+          "type": "integer"
+        },
+        "series": {
+          "items": {
+            "$ref": "#/$defs/Series"
+          },
+          "title": "Series",
+          "type": "array"
+        },
+        "summary_stats": {
+          "items": {
+            "$ref": "#/$defs/SummaryStat"
+          },
+          "title": "Summary Stats",
+          "type": "array"
+        },
+        "transform": {
+          "discriminator": {
+            "mapping": {
+              "NoTransform": "#/$defs/NoTransform",
+              "ZScoreFixedInterval": "#/$defs/ZScoreFixedInterval",
+              "ZScoreMovingInterval": "#/$defs/ZScoreMovingInterval"
+            },
+            "propertyName": "type"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/ZScoreMovingInterval"
+            },
+            {
+              "$ref": "#/$defs/ZScoreFixedInterval"
+            },
+            {
+              "$ref": "#/$defs/NoTransform"
+            }
+          ],
+          "title": "Transform"
+        },
+        "variable_id": {
+          "title": "Variable Id",
+          "type": "string"
+        },
+        "zonal_statistic": {
+          "$ref": "#/$defs/ZonalStatistic"
+        }
+      },
+      "required": [
+        "dataset_id",
+        "variable_id",
+        "area",
+        "n_cells",
+        "summary_stats",
+        "series",
+        "transform",
+        "zonal_statistic"
+      ],
+      "title": "TimeseriesResponse",
+      "type": "object"
+    },
+    "Series": {
+      "properties": {
+        "options": {
+          "$ref": "#/$defs/SeriesOptions"
+        },
+        "time_range": {
+          "$ref": "#/$defs/TimeRange"
+        },
+        "timesteps": {
+          "description": "The timestep of each value, in order (PROTO-007)",
+          "items": {
+            "type": "string"
+          },
+          "title": "Timesteps",
+          "type": "array"
+        },
+        "values": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": "Values",
+          "type": "array"
+        }
+      },
+      "required": [
+        "options",
+        "time_range",
+        "timesteps",
+        "values"
+      ],
+      "title": "Series",
+      "type": "object"
+    },
+    "SummaryStat": {
+      "properties": {
+        "mean": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Mean"
+        },
+        "median": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Median"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "stdev": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Stdev"
+        }
+      },
+      "required": [
+        "name",
+        "mean",
+        "median",
+        "stdev"
+      ],
+      "title": "SummaryStat",
+      "type": "object"
+    },
+    "JobStatusResponse": {
+      "description": "What a client sees of an extraction job. The stored job also keeps the\nbase series for /analyze, which is internal and never listed here.",
+      "properties": {
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Error"
+        },
+        "result": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TimeseriesResponse"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "$ref": "#/$defs/JobStatus"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "JobStatusResponse",
+      "type": "object"
+    },
+    "JobStatus": {
+      "enum": [
+        "PENDING",
+        "PROCESSING",
+        "SUCCESS",
+        "FAILED",
+        "TIMED_OUT"
+      ],
+      "title": "JobStatus",
+      "type": "string"
+    }
+  }
+}

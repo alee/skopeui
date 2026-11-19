@@ -1,4 +1,6 @@
+import type { TimeseriesResponse } from "@/types/timeseries";
 import { reactive } from "vue";
+import { defaultAnalysisOptions } from "@/types/api";
 import { vi } from "vitest";
 
 export const datasetMetadataFixture = {
@@ -8,6 +10,10 @@ export const datasetMetadataFixture = {
 };
 
 export const timeSeriesResponseFixture = {
+  dataset_id: "paleocar",
+  variable_id: "tasmax",
+  zonal_statistic: "mean",
+  transform: { type: "NoTransform" },
   n_cells: 2,
   area: 1200000,
   summary_stats: [{ name: "Original", mean: 1, median: 1, stdev: 0 }],
@@ -16,10 +22,10 @@ export const timeSeriesResponseFixture = {
       time_range: { gte: "0001", lte: "0003" },
       timesteps: ["0001", "0002", "0003"],
       values: [10, 20, 30],
-      options: { name: "Original" },
+      options: { name: "Original", smoother: { type: "NoSmoother" } },
     },
   ],
-};
+} satisfies TimeseriesResponse;
 
 export function createDatasetStore(overrides: Record<string, unknown> = {}) {
   const store = reactive({
@@ -33,18 +39,20 @@ export function createDatasetStore(overrides: Record<string, unknown> = {}) {
     minYear: 1,
     maxYear: 3,
     canHandleTimeSeriesRequest: true,
-    timeSeriesRequestData: { dataset_id: "paleocar", variable_id: "tasmax" },
-    timeSeriesRequestStatus: { status: "idle", messages: [] },
-    jobIds: {} as Record<string, string>,
-    defaultApiRequestData: {
+    timeSeriesRequestData: {
       dataset_id: "paleocar",
       variable_id: "tasmax",
       selected_area: { type: "FeatureCollection", features: [] },
       time_range: { gte: "0001-01-01", lte: "0003-01-01" },
     },
-    setJobId: vi.fn((varId: string, jobId: string) => {
-      (store as any).jobIds[varId] = jobId;
-    }),
+    timeSeriesRequestStatus: { status: "idle", messages: [] },
+    defaultApiRequestData: {
+      dataset_id: "paleocar",
+      variable_id: "tasmax",
+      selected_area: { type: "FeatureCollection", features: [] },
+      time_range: { gte: "0001-01-01", lte: "0003-01-01" },
+      max_processing_time: 20000,
+    },
     clearTimeSeries: vi.fn(),
     setMetadata: vi.fn((value: unknown) => {
       (store as any).metadata = value;
@@ -92,19 +100,31 @@ export function createAppStore(overrides: Record<string, unknown> = {}) {
 
 export function createAnalysisStore(overrides: Record<string, unknown> = {}) {
   const store = reactive({
+    formDrafts: {} as Record<string, unknown>,
     requestData: null as unknown,
     response: null as unknown,
+    completedRequest: null as unknown,
+    hasCurrentResult: false,
     summaryStatistics: [] as unknown[],
     timeseries: [] as unknown[],
-    setGeoJson: vi.fn(),
     setDefaultRequestData: vi.fn((value: unknown) => {
-      (store as any).requestData = value;
+      store.hasCurrentResult = false;
+      (store as any).requestData = {
+        ...defaultAnalysisOptions(),
+        ...(value as object),
+      };
     }),
     setRequestData: vi.fn((value: unknown) => {
-      (store as any).requestData = value;
+      store.hasCurrentResult = false;
+      (store as any).requestData = {
+        ...defaultAnalysisOptions(),
+        ...(value as object),
+      };
     }),
-    setResponse: vi.fn((value: any) => {
+    setResponse: vi.fn((value: any, request?: unknown) => {
+      store.hasCurrentResult = true;
       (store as any).response = value;
+      (store as any).completedRequest = request;
       (store as any).summaryStatistics = value.summary_stats ?? [];
       (store as any).timeseries =
         value.series?.map((series: any) => ({

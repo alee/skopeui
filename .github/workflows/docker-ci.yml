@@ -6,14 +6,17 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Generate citation files for build constants
+      - name: Generate citation assets
         run: make citations
-      - name: Run test suite
+      - name: Run complete type checking and test suite
         run: make test
       - name: Build nuxt site for production deployment
         run: make buildprod

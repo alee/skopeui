@@ -41,17 +41,17 @@ describe("PageLoadingOverlay", () => {
     const visible = () =>
       wrapper.find('[data-test="page-loading"]').attributes("data-visible");
 
-    hooks["page:loading:start"]();
+    hooks["page:loading:start"]!();
     await vi.advanceTimersByTimeAsync(400);
     expect(visible()).toBe("false");
-    hooks["page:loading:end"]();
+    hooks["page:loading:end"]!();
     await vi.advanceTimersByTimeAsync(400);
     expect(visible()).toBe("false");
 
-    hooks["page:loading:start"]();
+    hooks["page:loading:start"]!();
     await vi.advanceTimersByTimeAsync(600);
     expect(visible()).toBe("true");
-    hooks["page:loading:end"]();
+    hooks["page:loading:end"]!();
     await vi.advanceTimersByTimeAsync(0);
     expect(visible()).toBe("false");
   });

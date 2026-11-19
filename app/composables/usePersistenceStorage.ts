@@ -9,35 +9,39 @@ function parseStoredValue(rawValue: string | null): unknown {
   }
 }
 
-function hasWindowStorage() {
-  return typeof window !== "undefined" && !!window.localStorage;
-}
-
-export function usePersistenceStorage() {
+/** Storage is optional: privacy settings and quota limits must not block editing. */
+export function usePersistenceStorage(onError: () => void = () => {}) {
   function get(key: string): unknown {
-    if (!hasWindowStorage()) {
+    if (typeof window === "undefined") return null;
+    try {
+      return parseStoredValue(window.localStorage.getItem(key));
+    } catch {
+      onError();
       return null;
     }
-    return parseStoredValue(window.localStorage.getItem(key));
   }
 
-  function set(key: string, value: unknown): void {
-    if (!hasWindowStorage()) {
-      return;
+  function set(key: string, value: unknown): boolean {
+    if (typeof window === "undefined") return false;
+    try {
+      window.localStorage.setItem(key, JSON.stringify(value));
+      return true;
+    } catch {
+      onError();
+      return false;
     }
-    window.localStorage.setItem(key, JSON.stringify(value));
   }
 
-  function remove(key: string): void {
-    if (!hasWindowStorage()) {
-      return;
+  function remove(key: string): boolean {
+    if (typeof window === "undefined") return false;
+    try {
+      window.localStorage.removeItem(key);
+      return true;
+    } catch {
+      onError();
+      return false;
     }
-    window.localStorage.removeItem(key);
   }
 
-  return {
-    get,
-    set,
-    remove,
-  };
+  return { get, set, remove };
 }

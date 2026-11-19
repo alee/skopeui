@@ -97,7 +97,7 @@ describe("stores", () => {
 
   it("metadata store finds and filters datasets", () => {
     const store = useMetadataStore();
-    const [paleocar] = metadataFixture.datasets as Dataset[];
+    const paleocar = metadataFixture.datasets[0]! as Dataset;
     const lbda: Dataset = {
       ...paleocar,
       id: "lbda",
@@ -106,7 +106,7 @@ describe("stores", () => {
       time: { ...paleocar.time, origin: "0001", end: "2017" },
       variables: [
         {
-          ...paleocar.variables[0],
+          ...paleocar.variables[0]!,
           id: "pmdi",
           title: "PMDI",
           category: "Drought",
@@ -119,29 +119,32 @@ describe("stores", () => {
     expect(store.find("lbda")?.title).toBe("LBDA");
     expect(store.find("missing")).toBeNull();
 
-    store.setFilterCriteria({
+    store.filterCriteria = {
       selectedCategories: ["Precipitation"],
       yearStart: 1,
       yearEnd: 2005,
       query: "tree-ring",
-    });
+    };
     expect(store.filteredDatasets.map((d) => d.id)).toEqual(["paleocar_v3"]);
 
-    store.setFilterCriteria({
+    store.filterCriteria = {
       selectedCategories: [],
       yearStart: 2001,
       yearEnd: 2017,
-    });
+      query: "",
+    };
     expect(store.filteredDatasets.map((d) => d.id)).toEqual(["lbda"]);
   });
 
   it("analysis store reads the response and keeps the request when cleared", () => {
     const store = useAnalysisStore();
 
-    store.setDefaultRequestData({ dataset_id: "paleocar" });
-    store.setGeoJson({ type: "FeatureCollection", features: [] });
-    expect(store.requestData).toEqual({
-      dataset_id: "paleocar",
+    useDatasetStore().setMetadata(metadataFixture.datasets[0] as Dataset);
+    store.setDefaultRequestData({ zonal_statistic: "median" });
+    useDatasetStore().setGeoJson({ type: "FeatureCollection", features: [] });
+    expect(store.requestData).toMatchObject({
+      dataset_id: "paleocar_v3",
+      zonal_statistic: "median",
       selected_area: { type: "FeatureCollection", features: [] },
     });
 
@@ -156,13 +159,13 @@ describe("stores", () => {
         },
       ],
     } as any);
-    expect(store.summaryStatistics[0].name).toBe("Original");
-    expect(store.timeseries[0].x).toEqual([416, 417, 590]);
-    expect(store.timeseries[0].y).toEqual([1, null, 3]);
+    expect(store.summaryStatistics[0]!.name).toBe("Original");
+    expect(store.timeseries[0]!.x).toEqual([416, 417, 590]);
+    expect(store.timeseries[0]!.y).toEqual([1, null, 3]);
 
     store.clear();
     expect(store.timeseries).toEqual([]);
     expect(store.summaryStatistics).toEqual([]);
-    expect((store.requestData as any).dataset_id).toBe("paleocar");
+    expect(store.requestData.dataset_id).toBe("paleocar_v3");
   });
 });

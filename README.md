@@ -21,7 +21,10 @@ The development build uses `http://localhost:8001` for the API by default. Overr
 make deploy-dev SKOPE_API_HOST_URL=http://example.test:8001
 ```
 
-Run the test suite with `make test`. Use `make lint` to run ESLint with automatic fixes, or `make format` to format files and apply ESLint fixes; both commands can modify source files.
+Run the test suite with `make test`; it first runs full Nuxt type checking,
+including Vue scripts, templates, and TypeScript tests. Use `make typecheck` to
+run only the type check. Nuxt manages the application, server, shared, and build
+configuration types through project references in `app/tsconfig.json`. Use `make lint` to run ESLint with automatic fixes, or `make format` to format files and apply ESLint fixes; both commands can modify source files.
 
 After pulling dependency changes, recreate the development container and its anonymous `/code/node_modules` volume so it uses the rebuilt image's dependencies:
 
@@ -36,11 +39,11 @@ Include your `SKOPE_API_HOST_URL` override again if you use a custom API endpoin
 
 Each deployment target selects its API endpoint explicitly:
 
-| Target | UI image | API endpoint |
-| --- | --- | --- |
-| `make deploy-dev` | `openskope/skopeui:dev` | `http://localhost:8001` |
-| `make deploy-staging` | `openskope/skopeui:staging` | `https://staging-api.openskope.org` |
-| `make deploy-production` | `openskope/skopeui:prod` | `https://api.openskope.org` |
+| Target                   | UI image                    | API endpoint                        |
+| ------------------------ | --------------------------- | ----------------------------------- |
+| `make deploy-dev`        | `openskope/skopeui:dev`     | `http://localhost:8001`             |
+| `make deploy-staging`    | `openskope/skopeui:staging` | `https://staging-api.openskope.org` |
+| `make deploy-production` | `openskope/skopeui:prod`    | `https://api.openskope.org`         |
 
 Deployments build the selected image, replace the running Compose service, and wait for its health check. Use `make config ENVIRONMENT=staging` to inspect the resolved Compose configuration before deploying. Operational commands accept the same environment selection, for example:
 
@@ -51,9 +54,24 @@ make restart ENVIRONMENT=staging
 make down ENVIRONMENT=staging
 ```
 
-The API URL is compiled into the Nuxt client bundle. Rebuild the image after changing `SKOPE_API_HOST_URL`.
+The API URL is read from Nuxt's `runtimeConfig.public.apiBase` at container
+startup. Compose supplies `NUXT_PUBLIC_API_BASE` using the environment defaults
+above. Both `NUXT_PUBLIC_API_BASE` and the existing Make override
+`SKOPE_API_HOST_URL` are supported; the Make override takes precedence when both
+are supplied. Changing the URL requires recreating the container, without an
+image rebuild. An already-open browser needs a reload to receive the new value.
 
-The GitHub Actions workflow runs the test suite and builds the production image for pushes and pull requests against `main`. It does not check the staging API URL; run `make build ENVIRONMENT=staging` locally before merging an upgrade.
+Make generates `app/generated/citation.txt` and `citation.bib` from `CITATION.cff`
+before tests and builds. These ignored text assets are imported with Vite's
+`?raw` suffix. Run `make citations` to generate them independently and `make clean`
+to remove them. The Git version is passed to Docker as `SKOPE_BUILD_ID` and
+compiled into Nuxt's `appConfig.buildId`; it stays tied to the built image.
+
+API paths are resolved by `app/utils/apiEndpoints.ts` from the configured base.
+Analysis options, export README text, and statistics helpers have their own
+utility files. Application state lives in the Pinia stores under `app/stores/`.
+
+The GitHub Actions workflow runs the test suite and builds the production image for pushes and pull requests against `main`. Run `make config ENVIRONMENT=staging` to check the staging runtime settings and `make build ENVIRONMENT=staging` to validate the deployable image before merging an upgrade.
 
 ## Maintenance
 
@@ -79,3 +97,33 @@ Validate upgrades with `make test` and `make build ENVIRONMENT=staging`. In a br
 - Kyle Bocinsky [@bocinsky](https://github.com/bocinsky)
 
 Past and present contributions are recorded in the [GitHub contributors](../../graphs/contributors) history.
+
+## Basemaps
+
+All maps now use MapLibre. Workflow maps retain the Esri Topographic default,
+Esri Terrain, and Esri Gray Canvas. Stamen Toner Lite and CARTO Positron are
+available when their authentication is configured:
+
+| Runtime environment variable          | Purpose                                                                            |
+| ------------------------------------- | ---------------------------------------------------------------------------------- |
+| `NUXT_PUBLIC_CARTO_API_KEY`           | Enables Positron using CARTO's `key` parameter.                                    |
+| `NUXT_PUBLIC_STADIA_API_KEY`          | Enables Toner Lite using Stadia Maps' `api_key` parameter.                         |
+| `NUXT_PUBLIC_STADIA_DOMAIN_AUTH=true` | Enables Toner Lite without a key after registering the UI domain with Stadia Maps. |
+
+Set these in the deployment environment or the repository's ignored `.env`
+file, then use the normal Make deployment target. Compose forwards them to the
+Nuxt server at runtime; no credential is baked into the image. These are
+browser-visible provider keys; restrict them to the UI domains in the provider
+dashboards. Providers without configuration are omitted from the menu.
+
+Toner Lite uses the current [Stadia Maps service](https://docs.stadiamaps.com/map-styles/stamen-toner/)
+and [authentication options](https://docs.stadiamaps.com/authentication/).
+Positron uses the current [CARTO raster service](https://www.carto.com/basemaps/).
+Attribution is supplied on each raster source, and source zoom limits allow
+MapLibre to overzoom Terrain's last supported level instead of requesting
+unavailable tiles.
+
+Dataset cards use topographic previews with the advertised viewport and extent.
+They link to the dataset; previews create a WebGL map only near the viewport and
+release it when offscreen. The old map-engine override and alternate renderer
+have been removed.
