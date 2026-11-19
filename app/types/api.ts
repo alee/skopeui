@@ -4,12 +4,6 @@ import type {
   TimeRange,
 } from "@/types/timeseries";
 
-// This route's reply is not yet declared in backend OpenAPI. Mirrors the
-// existing /timeseries/extract payload; replace with its generated model later.
-export interface ExtractionAcceptedResponse {
-  job_id: string;
-  status: "accepted";
-}
 export type SuccessfulJobStatus = {
   status: "SUCCESS";
   result: TimeseriesResponse;

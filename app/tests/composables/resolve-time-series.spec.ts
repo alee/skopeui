@@ -100,7 +100,7 @@ describe("resolveTimeSeries", () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(respond(409, { detail: "not complete" }))
-      .mockResolvedValueOnce(respond(200, { status: "RUNNING" }))
+      .mockResolvedValueOnce(respond(200, { status: "PROCESSING" }))
       .mockResolvedValueOnce(
         respond(200, { status: "SUCCESS", result: RESULT }),
       )
@@ -120,7 +120,7 @@ describe("resolveTimeSeries", () => {
     expect(urls.at(-1)).toMatch(/\/timeseries\/analyze$/);
   });
 
-  it("extracts again when the cached job's extraction failed", async () => {
+  it("requires another user attempt when the cached extraction failed", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(respond(409, { detail: "not complete" }))
@@ -131,8 +131,11 @@ describe("resolveTimeSeries", () => {
       );
     vi.stubGlobal("fetch", fetchMock);
 
-    const { newJobId } = await resolve("old-job", {});
-
+    await expect(resolve("old-job", {})).rejects.toMatchObject({
+      code: "EXTRACTION_FAILED",
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const { newJobId } = await resolve(undefined, {});
     expect(newJobId).toBe("new-job");
     expect(fetchMock.mock.calls[2]![0]!).toMatch(/\/timeseries\/extract$/);
   });
@@ -197,10 +200,8 @@ describe("resolveTimeSeries", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(resolve("old-job", {})).rejects.toMatchObject({
-      response: {
-        status: 504,
-        data: { detail: [{ msg: "Processing exceeded 20000 ms." }] },
-      },
+      code: "PROCESSING_TIMEOUT",
+      message: "Processing exceeded 20000 ms.",
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
@@ -227,8 +228,16 @@ describe("resolveTimeSeries", () => {
   it("retries an extraction the API is at capacity for", async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(respond(503, { detail: "at capacity" }))
-      .mockResolvedValueOnce(respond(503, { detail: "at capacity" }))
+      .mockResolvedValueOnce(
+        respond(503, {
+          detail: { code: "CAPACITY_EXHAUSTED", msg: "at capacity" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        respond(503, {
+          detail: { code: "CAPACITY_EXHAUSTED", msg: "at capacity" },
+        }),
+      )
       .mockResolvedValueOnce(respond(200, { job_id: "new-job" }))
       .mockResolvedValueOnce(
         respond(200, { status: "SUCCESS", result: RESULT }),
@@ -249,7 +258,11 @@ describe("resolveTimeSeries", () => {
   it("gives up on capacity after about a minute", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => respond(503, { detail: "at capacity" })),
+      vi.fn(async () =>
+        respond(503, {
+          detail: { code: "CAPACITY_EXHAUSTED", msg: "at capacity" },
+        }),
+      ),
     );
     vi.useFakeTimers();
 

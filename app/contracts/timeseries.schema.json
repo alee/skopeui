@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "TimeseriesContracts",
-  "x-skope-source": "skope-api@812e9b3",
+  "x-skope-source": "skope-api@codex/recoverable-extraction-jobs (working tree)",
   "type": "object",
   "additionalProperties": false,
   "properties": {
@@ -16,6 +16,12 @@
     },
     "JobStatusResponse": {
       "$ref": "#/$defs/JobStatusResponse"
+    },
+    "ExtractionAcceptedResponse": {
+      "$ref": "#/$defs/ExtractionAcceptedResponse"
+    },
+    "JobErrorResponse": {
+      "$ref": "#/$defs/JobErrorResponse"
     }
   },
   "$defs": {
@@ -1737,6 +1743,27 @@
           ],
           "title": "Error"
         },
+        "error_code": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Error Code"
+        },
+        "lifecycle": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/JobLifecycle"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "result": {
           "anyOf": [
             {
@@ -1757,6 +1784,61 @@
       "title": "JobStatusResponse",
       "type": "object"
     },
+    "JobLifecycle": {
+      "properties": {
+        "accepted_at": {
+          "title": "Accepted At",
+          "type": "number"
+        },
+        "dispatch_deadline": {
+          "title": "Dispatch Deadline",
+          "type": "number"
+        },
+        "expires_at": {
+          "title": "Expires At",
+          "type": "number"
+        },
+        "finished_at": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Finished At"
+        },
+        "key_expires_at": {
+          "title": "Key Expires At",
+          "type": "number"
+        },
+        "processing_deadline": {
+          "title": "Processing Deadline",
+          "type": "number"
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Started At"
+        }
+      },
+      "required": [
+        "accepted_at",
+        "dispatch_deadline",
+        "processing_deadline",
+        "expires_at",
+        "key_expires_at"
+      ],
+      "title": "JobLifecycle",
+      "type": "object"
+    },
     "JobStatus": {
       "enum": [
         "PENDING",
@@ -1767,6 +1849,69 @@
       ],
       "title": "JobStatus",
       "type": "string"
+    },
+    "ExtractionAcceptedResponse": {
+      "properties": {
+        "declaration_digest": {
+          "title": "Declaration Digest",
+          "type": "string"
+        },
+        "job_id": {
+          "title": "Job Id",
+          "type": "string"
+        },
+        "lifecycle": {
+          "$ref": "#/$defs/JobLifecycle"
+        },
+        "release_id": {
+          "title": "Release Id",
+          "type": "string"
+        },
+        "status": {
+          "const": "accepted",
+          "default": "accepted",
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "job_id",
+        "lifecycle",
+        "release_id",
+        "declaration_digest"
+      ],
+      "title": "ExtractionAcceptedResponse",
+      "type": "object"
+    },
+    "JobErrorResponse": {
+      "properties": {
+        "detail": {
+          "$ref": "#/$defs/JobErrorDetail"
+        }
+      },
+      "required": [
+        "detail"
+      ],
+      "title": "JobErrorResponse",
+      "type": "object"
+    },
+    "JobErrorDetail": {
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "msg": {
+          "title": "Msg",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "msg"
+      ],
+      "title": "JobErrorDetail",
+      "type": "object"
     }
   }
 }

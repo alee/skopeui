@@ -1,3 +1,4 @@
+import { RequestFailure } from "@/utils/requestJson";
 import type { DraftTimeseriesRequest } from "@/types/api";
 import { parseTimeseriesRequest } from "@/utils/savedAnalysis";
 import { onScopeDispose } from "vue";
@@ -54,15 +55,45 @@ export function useTimeSeriesRequest(mode: "visualize" | "analyze") {
       if (mode === "visualize") dataset.clearTimeSeries();
       const status = error.response?.status;
       const rawDetail = error.response?.data?.detail;
+      if (error instanceof RequestFailure && error.code === "SUPERSEDED")
+        return;
       const detail = Array.isArray(rawDetail)
         ? rawDetail
-        : [{ msg: rawDetail ?? error.message ?? "Unknown request error." }];
+        : [
+            {
+              msg:
+                rawDetail?.msg ??
+                rawDetail ??
+                error.message ??
+                "Unknown request error.",
+            },
+          ];
       const message = detail.map((entry: any) => entry.msg).join(" ");
-      if (status === 504) {
+      const code =
+        error instanceof RequestFailure ? error.code : rawDetail?.code;
+      if (code === "PROCESSING_TIMEOUT") {
         dataset.setTimeSeriesTimeout();
         messages.error(
           "This area took too long to process. Try a smaller one on the Select Area step.",
         );
+      } else if (
+        [
+          "HTTP_TIMEOUT",
+          "NETWORK_ERROR",
+          "SUBMISSION_TIMEOUT",
+          "POLLING_TIMEOUT",
+          "ANALYSIS_TIMEOUT",
+          "WORKER_LOST",
+          "SCHEDULING_FAILED",
+          "CAPACITY_EXHAUSTED",
+          "COORDINATION_UNAVAILABLE",
+        ].includes(code) ||
+        status === 504
+      ) {
+        // A gateway/connection timeout says nothing about the selected area's
+        // size. Retrying reconnects to the accepted job when it is available.
+        dataset.setTimeSeriesServerError(detail);
+        messages.error(message);
       } else if (status >= 400 && status < 500) {
         dataset.setTimeSeriesBadRequest(detail);
         if (mode === "analyze" && status === 422) {

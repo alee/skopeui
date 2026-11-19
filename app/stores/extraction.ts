@@ -2,6 +2,7 @@ import { defineStore } from "pinia";
 import { ref, watch } from "vue";
 import { useDatasetStore } from "@/stores/dataset";
 import { extractionIdentity, stableJson } from "@/utils/extractionIdentity";
+import { RequestFailure } from "@/utils/requestJson";
 import { createTimeSeriesApi } from "@/utils/timeSeriesApi";
 import { useRuntimeConfig } from "nuxt/app";
 
@@ -28,10 +29,25 @@ export const useExtractionStore = defineStore("extraction", () => {
     string,
     ReturnType<typeof pollTimeSeriesStatus>
   >();
+  // Keep the original payload and key across uncertain submission failures.
+  // Later form choices are analyzed against the recovered extraction.
+  const attempts = new Map<
+    string,
+    {
+      key: string;
+      request: RequestData;
+      releaseId?: string;
+      declarationDigest?: string;
+    }
+  >();
+  let controller = new AbortController();
   let generation = 0;
   let latestRequest = 0;
 
   function clear() {
+    controller.abort();
+    controller = new AbortController();
+    attempts.clear();
     generation++;
     latestRequest++;
     jobIds.value = {};
@@ -87,7 +103,7 @@ export const useExtractionStore = defineStore("extraction", () => {
   function poll(jobId: string) {
     let pending = pendingPolls.get(jobId);
     if (!pending) {
-      pending = pollTimeSeriesStatus(jobId).finally(() => {
+      pending = pollTimeSeriesStatus(jobId, controller.signal).finally(() => {
         if (pendingPolls.get(jobId) === pending) pendingPolls.delete(jobId);
       });
       pendingPolls.set(jobId, pending);
@@ -99,61 +115,134 @@ export const useExtractionStore = defineStore("extraction", () => {
     let pending = pendingExtractions.get(key);
     if (!pending) {
       pending = (async () => {
-        const jobId = await submitTimeSeriesRequest(
-          request,
-          () => epoch === generation,
-        );
+        if (epoch !== generation)
+          throw new RequestFailure(
+            "SUPERSEDED",
+            "Extraction request superseded",
+          );
+        let attempt = attempts.get(key);
+        if (!attempt) {
+          attempt = {
+            key: crypto.randomUUID(),
+            request,
+            releaseId: dataset.metadata?.release_id,
+            declarationDigest: dataset.metadata?.declaration_digest,
+          };
+          attempts.set(key, attempt);
+        }
+        const jobId = await submitTimeSeriesRequest(attempt.request, {
+          ...attempt,
+          signal: controller.signal,
+        });
+        if (epoch !== generation)
+          throw new RequestFailure(
+            "SUPERSEDED",
+            "Extraction request superseded",
+          );
         if (epoch === generation) jobIds.value[key] = jobId;
         const result = await poll(jobId);
         return {
           jobId,
           response: result.result,
-          requestKey: stableJson(request),
+          requestKey: stableJson(attempt.request),
         };
-      })().finally(() => {
-        if (pendingExtractions.get(key) === pending)
-          pendingExtractions.delete(key);
-      });
+      })()
+        .catch((error) => {
+          if (
+            epoch === generation &&
+            (terminal(error) ||
+              (error instanceof RequestFailure &&
+                [400, 404, 422].includes(error.response?.status ?? 0)))
+          ) {
+            attempts.delete(key);
+            delete jobIds.value[key];
+          }
+          throw error;
+        })
+        .finally(() => {
+          if (pendingExtractions.get(key) === pending)
+            pendingExtractions.delete(key);
+        });
       pendingExtractions.set(key, pending);
     }
     return pending;
   }
 
+  function terminal(error: unknown) {
+    return (
+      error instanceof RequestFailure &&
+      [
+        "PROCESSING_TIMEOUT",
+        "WORKER_LOST",
+        "SCHEDULING_FAILED",
+        "EXTRACTION_FAILED",
+        "INVALID_EXTRACTION",
+        "UPSTREAM_FAILURE",
+        "RESULT_EXPIRED",
+        "SOURCE_CHANGED",
+        "IDEMPOTENCY_CONFLICT",
+      ].includes(error.code)
+    );
+  }
+
   async function resolve(key: string, request: RequestData, epoch: number) {
     const pending = pendingExtractions.get(key);
     const shared = pending ? await pending : undefined;
-    if (epoch !== generation) throw new Error("Extraction request superseded");
+    if (epoch !== generation)
+      throw new RequestFailure("SUPERSEDED", "Extraction request superseded");
     if (shared?.requestKey === stableJson(request)) return shared.response;
     // A shared extraction reads the whole axis, but its initial result uses
     // only the originating request's range, transform and smoothing options.
     const jobId = shared?.jobId ?? jobIds.value[key];
     if (jobId) {
       try {
-        return await refineTimeSeriesAnalysis(jobId, request);
+        return await refineTimeSeriesAnalysis(
+          jobId,
+          request,
+          controller.signal,
+        );
       } catch (error: any) {
         const status = error.response?.status;
+        if (terminal(error) && ![404, 410].includes(status)) {
+          attempts.delete(key);
+          delete jobIds.value[key];
+          throw error;
+        }
         if (![404, 409, 410].includes(status)) throw error;
         if (status === 409) {
           try {
             await poll(jobId);
-            return await refineTimeSeriesAnalysis(jobId, request);
+            return await refineTimeSeriesAnalysis(
+              jobId,
+              request,
+              controller.signal,
+            );
           } catch (error: any) {
-            // Request errors and timeouts propagate without resubmitting.
-            if (![404, 410, 500].includes(error.response?.status)) throw error;
+            // A terminal extraction requires a new user attempt; do not
+            // automatically launch more expensive work in this request.
+            if (terminal(error)) {
+              attempts.delete(key);
+              delete jobIds.value[key];
+              throw error;
+            }
+            if (![404, 410].includes(error.response?.status)) throw error;
           }
         }
         if (epoch === generation && jobIds.value[key] === jobId) {
           delete jobIds.value[key];
+          attempts.delete(key);
         }
       }
     }
     // Clearing a study area must not let old work start another extraction.
-    if (epoch !== generation) throw new Error("Extraction request superseded");
+    if (epoch !== generation)
+      throw new RequestFailure("SUPERSEDED", "Extraction request superseded");
     const fresh = await extract(key, request, epoch);
-    if (epoch !== generation) throw new Error("Extraction request superseded");
+    if (epoch !== generation)
+      throw new RequestFailure("SUPERSEDED", "Extraction request superseded");
     return fresh.requestKey === stableJson(request)
       ? fresh.response
-      : refineTimeSeriesAnalysis(fresh.jobId, request);
+      : refineTimeSeriesAnalysis(fresh.jobId, request, controller.signal);
   }
 
   function resolveTimeSeries(data: RequestData): Promise<TimeseriesResponse> {

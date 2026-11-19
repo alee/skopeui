@@ -12,6 +12,8 @@ const MODELS = [
   "TimeseriesAnalyzeRequest",
   "TimeseriesResponse",
   "JobStatusResponse",
+  "ExtractionAcceptedResponse",
+  "JobErrorResponse",
 ];
 
 function prepare(node, definition = false) {

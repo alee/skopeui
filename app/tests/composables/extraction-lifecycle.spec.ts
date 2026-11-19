@@ -375,3 +375,135 @@ it("reports an empty visualization response without leaving a successful plot st
     "The API returned no time series.",
   );
 });
+
+it("retains an uncertain submission key and its original payload across a later user retry", async () => {
+  vi.useFakeTimers();
+  const fetch = vi
+    .fn()
+    .mockImplementation(() => new Promise<Response>(() => {}));
+  vi.stubGlobal("fetch", fetch);
+  const store = useExtractionStore();
+  const outcome = expect(
+    store.resolveTimeSeries(request),
+  ).rejects.toMatchObject({ code: "SUBMISSION_TIMEOUT" });
+  await vi.advanceTimersByTimeAsync(60_000);
+  await outcome;
+  const originalKey = fetch.mock.calls[0]?.[1].headers.get("Idempotency-Key");
+  const originalPayload = fetch.mock.calls[0]?.[1].body;
+  const attemptCount = fetch.mock.calls.length;
+  const changed = { ...request, zonal_statistic: "median" as const };
+  fetch
+    .mockReset()
+    .mockResolvedValueOnce(respond({ job_id: "recovered" }))
+    .mockResolvedValueOnce(respond({ status: "SUCCESS", result: RESULT }))
+    .mockResolvedValueOnce(respond({ ...RESULT, zonal_statistic: "median" }));
+  await expect(store.resolveTimeSeries(changed)).resolves.toMatchObject({
+    zonal_statistic: "median",
+  });
+  expect(attemptCount).toBeGreaterThan(1);
+  expect(fetch.mock.calls[0]?.[1].headers.get("Idempotency-Key")).toBe(
+    originalKey,
+  );
+  expect(fetch.mock.calls[0]?.[1].body).toBe(originalPayload);
+  expect(JSON.parse(fetch.mock.calls[2]?.[1].body).zonal_statistic).toBe(
+    "median",
+  );
+});
+
+it("aborts retired source connections without canceling variable switches or navigation", async () => {
+  let signal: AbortSignal | undefined;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((_url, options) => {
+      signal = options.signal;
+      return new Promise<Response>(() => {});
+    }),
+  );
+  const pending = useExtractionStore().resolveTimeSeries(request);
+  const outcome = expect(pending).rejects.toMatchObject({ code: "SUPERSEDED" });
+  useDatasetStore().setVariable("other");
+  expect(signal?.aborted).toBe(false);
+  useDatasetStore().setGeoJson({ type: "Point", coordinates: [0, 0] });
+  await outcome;
+  expect(signal?.aborted).toBe(true);
+});
+
+it("retains a successful extraction after an analysis connection timeout", async () => {
+  vi.useFakeTimers();
+  const store = useExtractionStore();
+  const key = extractionIdentity(request, useDatasetStore().metadata);
+  store.jobIds[key] = "successful-job";
+  const fetch = vi
+    .fn()
+    .mockImplementationOnce(() => new Promise<Response>(() => {}))
+    .mockResolvedValueOnce(respond(RESULT));
+  vi.stubGlobal("fetch", fetch);
+  const outcome = expect(
+    store.resolveTimeSeries(request),
+  ).rejects.toMatchObject({ code: "HTTP_TIMEOUT" });
+  await vi.advanceTimersByTimeAsync(30_000);
+  await outcome;
+  expect(store.jobIds[key]).toBe("successful-job");
+  await store.resolveTimeSeries(request);
+  expect(fetch.mock.calls.every(([url]) => url.endsWith("/analyze"))).toBe(
+    true,
+  );
+});
+
+it.each(["PROCESSING_TIMEOUT", "WORKER_LOST"])(
+  "requires a new user attempt after %s instead of automatically extracting again",
+  async (code) => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(respond({ job_id: "failed-job" }))
+      .mockResolvedValueOnce(
+        respond({
+          status: code === "PROCESSING_TIMEOUT" ? "TIMED_OUT" : "FAILED",
+          error_code: code,
+          error: "failed",
+        }),
+      );
+    vi.stubGlobal("fetch", fetch);
+    await expect(
+      useExtractionStore().resolveTimeSeries(request),
+    ).rejects.toMatchObject({ code });
+    expect(
+      fetch.mock.calls.filter(([url]) => url.endsWith("/extract")),
+    ).toHaveLength(1);
+    expect(useExtractionStore().jobIds).toEqual({});
+  },
+);
+
+it.each(["processing", "gateway"])(
+  "gives cause-specific advice for a %s timeout",
+  async (kind) => {
+    const store = useExtractionStore();
+    const key = extractionIdentity(request, useDatasetStore().metadata);
+    store.jobIds[key] = "existing";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        respond(
+          {
+            detail: {
+              code:
+                kind === "processing"
+                  ? "PROCESSING_TIMEOUT"
+                  : "GATEWAY_TIMEOUT",
+              msg: "Timed out",
+            },
+          },
+          504,
+        ),
+      ),
+    );
+    await consumer("visualize").run(request);
+    const messages = useMessagesStore()
+      .messages.map((message) => message.message)
+      .join(" ");
+    expect(messages.includes("smaller")).toBe(kind === "processing");
+    expect(useDatasetStore().timeSeriesRequestStatus.status).toBe(
+      kind === "processing" ? "timeout" : "servererror",
+    );
+  },
+);
