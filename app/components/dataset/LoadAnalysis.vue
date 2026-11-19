@@ -14,10 +14,11 @@
         @click="selectLoadRequestDataFile"
       >
         <input
-          id="loadRequestDataFile"
+          ref="requestFile"
           type="file"
           accept=".json"
           style="display: none"
+          @click.stop
           @change="handleLoadRequestDataFile"
         >
         Load saved analysis
@@ -26,20 +27,24 @@
   </v-tooltip>
 </template>
 <script setup lang="ts">
-import { useRouter } from "vue-router";
+import { useTemplateRef } from "vue";
 import { SavedAnalysisValidationError } from "@/utils/savedAnalysis";
 import { useSavedAnalysis } from "@/composables/useSavedAnalysis";
 
 const router = useRouter();
+const requestFile = useTemplateRef<HTMLInputElement>("requestFile");
 const savedAnalysis = useSavedAnalysis();
 
 function selectLoadRequestDataFile() {
-  document.getElementById("loadRequestDataFile")!.click();
+  requestFile.value?.click();
 }
 
 async function handleLoadRequestDataFile(event: Event) {
-  const file = (event.target as HTMLInputElement).files?.[0];
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
   if (!file) return;
+  // Allow choosing the same file again after a failed import.
+  input.value = "";
   try {
     const requestData = await savedAnalysis.restore(
       JSON.parse(await file.text()),
@@ -61,5 +66,3 @@ async function handleLoadRequestDataFile(event: Event) {
   }
 }
 </script>
-
-<style scoped></style>

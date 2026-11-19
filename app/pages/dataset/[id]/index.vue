@@ -93,7 +93,7 @@ const returnToAnalysis = computed(() => route.query?.returnTo === "analyze");
 // No link without both params: the router throws mid-render otherwise.
 const visualizeLocation = computed(() => {
   const id = route.params.id;
-  const variable = (datasetStore.variable as any)?.id;
+  const variable = datasetStore.variable.id;
   if (!id || !variable) return undefined;
   return {
     name: returnToAnalysis.value
@@ -113,9 +113,9 @@ await useAsyncData(
 );
 
 useHead(() => ({
-  title: (metadata.value as any)?.title || "SKOPE",
-  meta: (metadata.value as any)?.description
-    ? [{ name: "description", content: (metadata.value as any).description }]
+  title: metadata.value?.title || "SKOPE",
+  meta: metadata.value?.description
+    ? [{ name: "description", content: metadata.value.description }]
     : [],
 }));
 

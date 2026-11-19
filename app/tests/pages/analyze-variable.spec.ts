@@ -145,7 +145,6 @@ describe("route /dataset/:id/analyze/:variable", () => {
       warning: vi.fn(),
       info: vi.fn(),
       dismiss: vi.fn(),
-      clearMessages: vi.fn(),
     };
     metadataActions = { initializeDataset: vi.fn(async () => true) };
     studyArea = { restore: vi.fn() };

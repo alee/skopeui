@@ -175,7 +175,6 @@ vi.mock("@/stores/messages", () => ({
     error: vi.fn(),
     info: vi.fn(),
     dismiss: vi.fn(),
-    clearMessages: vi.fn(),
   }),
 }));
 
@@ -209,6 +208,7 @@ const VListItemStub = defineComponent({
 });
 
 const uiStubs = {
+  "v-progress-circular": true,
   "v-card": { template: "<div><slot /></div>" },
   "v-toolbar": { template: "<div><slot /></div>" },
   "v-row": { template: "<div><slot /></div>" },
@@ -237,7 +237,7 @@ describe("MapLibre", () => {
     mocks.routeState.params = { id: "paleocar" };
     mocks.datasetStore.geoJson = null;
     mocks.datasetStore.metadata = { id: "paleocar", variables: [] } as any;
-    mocks.datasetStore.variable = null;
+    mocks.datasetStore.variable = ppt;
 
     mocks.mapInstances.length = 0;
     vi.clearAllMocks();

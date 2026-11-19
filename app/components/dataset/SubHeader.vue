@@ -4,7 +4,7 @@
       <span class="text-h6">
         {{ metadata?.title }}
       </span>
-      <MetadataModal :metadata-id="metadata?.id" />
+      <MetadataModal v-if="metadata" :metadata-id="metadata.id" />
       <v-btn
         icon
         size="x-small"
@@ -40,23 +40,21 @@
   </v-row>
 </template>
 <script setup lang="ts">
-import { ref, computed } from "vue";
-import { useRouter } from "vue-router";
+import { computed } from "vue";
 import MetadataModal from "@/components/dataset/MetadataModal.vue";
 import { useDatasetStore } from "@/stores/dataset";
 
-const props = defineProps<{ selectVariable?: boolean }>();
+defineProps<{ selectVariable?: boolean }>();
 const route = useRoute();
 const router = useRouter();
 const datasetStore = useDatasetStore();
 
-const showInstructions = ref(false);
-const metadata = computed(() => datasetStore.metadata as any);
+const metadata = computed(() => datasetStore.metadata);
 const variables = computed(() => metadata.value?.variables ?? []);
 
 const variable = computed({
   get() {
-    return datasetStore.variable as any;
+    return datasetStore.variable.id;
   },
   set(variableId: string) {
     datasetStore.setVariable(variableId);

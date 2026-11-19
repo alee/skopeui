@@ -20,6 +20,17 @@ function mountListItem(overrides: Partial<Dataset> = {}) {
     props: { dataset: { ...paleocar, ...overrides } },
     global: {
       stubs: {
+        "v-row": { template: "<div><slot /></div>" },
+        "v-col": { template: "<div><slot /></div>" },
+        "v-card": { template: "<div><slot /></div>" },
+        "v-card-title": { template: "<div><slot /></div>" },
+        "v-card-text": { template: "<div><slot /></div>" },
+        "v-list": { template: "<div><slot /></div>" },
+        "v-list-subheader": { template: "<div><slot /></div>" },
+        "v-list-group": {
+          template: '<div><slot name="activator" :props="{}" /><slot /></div>',
+        },
+        "v-chip": { template: "<span><slot /></span>" },
         "client-only": { template: "<div><slot /></div>" },
         NuxtLink: { props: ["to"], template: '<a :href="to"><slot /></a>' },
         MetadataModal: true,

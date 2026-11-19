@@ -119,19 +119,20 @@ describe("stores", () => {
     expect(store.find("lbda")?.title).toBe("LBDA");
     expect(store.find("missing")).toBeNull();
 
-    store.setFilterCriteria({
+    store.filterCriteria = {
       selectedCategories: ["Precipitation"],
       yearStart: 1,
       yearEnd: 2005,
       query: "tree-ring",
-    });
+    };
     expect(store.filteredDatasets.map((d) => d.id)).toEqual(["paleocar_v3"]);
 
-    store.setFilterCriteria({
+    store.filterCriteria = {
       selectedCategories: [],
       yearStart: 2001,
       yearEnd: 2017,
-    });
+      query: "",
+    };
     expect(store.filteredDatasets.map((d) => d.id)).toEqual(["lbda"]);
   });
 

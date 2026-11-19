@@ -18,12 +18,12 @@ describe("catalog filtering", () => {
   it("keeps filters active when the catalog refreshes, including new matches", () => {
     const store = useMetadataStore();
     store.setAllDatasetMetadata([other, original]);
-    store.setFilterCriteria({
+    store.filterCriteria = {
       selectedCategories: ["Precipitation"],
       yearStart: 1000,
       yearEnd: 1200,
       query: "tree-ring",
-    });
+    };
     expect(store.filteredDatasets.map((dataset) => dataset.id)).toEqual([
       original.id,
     ]);

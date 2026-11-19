@@ -178,6 +178,7 @@ import {
 } from "vue";
 import { useMounted, whenever } from "@vueuse/core";
 import { useDisplay } from "vuetify";
+import type { VForm } from "vuetify/components";
 import TimeSeriesPlot from "@/components/dataset/TimeSeriesPlot.vue";
 import SubHeader from "@/components/dataset/SubHeader.vue";
 import LoadingSpinner from "@/components/LoadingSpinner.vue";
@@ -318,7 +319,10 @@ const isStudyAreaPolygon = computed(() => {
 const summaryStatistics = computed(() => analysisStore.summaryStatistics);
 const traces = computed(() => {
   const timeseries = analysisStore.timeseries;
-  const transformed = timeseries.map((ts: any) => ({ ...ts, type: "scatter" }));
+  const transformed = timeseries.map((ts) => ({
+    ...ts,
+    type: "scatter" as const,
+  }));
   if (transformed.length > 0) return transformed;
   return [
     { ...datasetStore.filteredTimeSeries(), type: "scatter", name: "Original" },
@@ -469,7 +473,7 @@ function validateMaxYear(value: number | string) {
 
 // The dataset's number of time steps bounds every moving window.
 const timestepCount = computed(
-  () => (datasetStore.metadata as any)?.time?.count ?? Infinity,
+  () => datasetStore.metadata?.time.count ?? Infinity,
 );
 
 function validateZScoreWidth(width: number) {
@@ -483,7 +487,7 @@ function validateZScoreWidth(width: number) {
 
 // Each year's rule compares it with the other year: check both when either
 // changes, so fixing one clears the other's message.
-const analysisRequestForm = ref<any>(null);
+const analysisRequestForm = ref<InstanceType<typeof VForm> | null>(null);
 watch(
   () => [timeRange.value.lb.year, timeRange.value.ub.year],
   () => analysisRequestForm.value?.validate(),

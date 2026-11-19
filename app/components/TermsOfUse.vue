@@ -108,8 +108,6 @@ function copyToClipboard(evt: MouseEvent) {
 }
 </script>
 
-<style></style>
-
 <style scoped>
 @media (max-width: 599px) {
   .terms-actions {

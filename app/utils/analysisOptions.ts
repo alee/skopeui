@@ -3,7 +3,7 @@ import type { AnalysisFormDraft, TransformOptionId } from "@/types/analysis";
 import type { AnalysisOptions } from "@/types/api";
 import { extractYear, toISODate } from "@/utils/stats";
 
-export const DEFAULT_CENTERED_SMOOTHING_WIDTH = 11;
+const DEFAULT_CENTERED_SMOOTHING_WIDTH = 11;
 export const SMOOTHING_OPTIONS = [
   { label: "None (time steps individually plotted)", id: "none" },
   { label: "Centered Running Average", id: "centeredAverage" },

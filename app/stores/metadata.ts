@@ -71,16 +71,5 @@ export const useMetadataStore = defineStore("metadata", {
     setAllDatasetMetadata(datasets: Dataset[]) {
       this.allDatasetMetadata = datasets;
     },
-    setFilterCriteria(filterCriteria: {
-      selectedCategories: string[];
-      yearStart: number;
-      yearEnd: number;
-      query?: string;
-    }) {
-      this.filterCriteria = {
-        ...filterCriteria,
-        query: filterCriteria.query || "",
-      };
-    },
   },
 });

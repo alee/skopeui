@@ -1,6 +1,7 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createPinia, setActivePinia } from "pinia";
 
+import { useMessagesStore } from "@/stores/messages";
 import { useStudyArea } from "@/composables/useStudyArea";
 import { useExtractionStore } from "@/stores/extraction";
 import { timeSeriesResponseFixture } from "@/tests/fixtures/page-fixtures";
@@ -112,5 +113,66 @@ describe("study-area persistence", () => {
     expect(useDatasetStore().geoJson).toBeNull();
     expect(localStorage.getItem("geojson:paleocar_v3")).toBeNull();
     expect(JSON.parse(localStorage.getItem("geojson:other")!)).toEqual(area);
+  });
+});
+
+describe("unavailable browser storage", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    localStorage.clear();
+    useDatasetStore().setMetadata(metadataFixture.datasets[0] as Dataset);
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it("continues editing when access is blocked, retaining changes across dataset switches", () => {
+    vi.spyOn(window, "localStorage", "get").mockImplementation(() => {
+      throw new DOMException("Blocked", "SecurityError");
+    });
+    const studyArea = useStudyArea();
+    const dataset = useDatasetStore();
+    studyArea.restore();
+    studyArea.save(area);
+    expect(dataset.geoJson).toEqual(area);
+    const original = dataset.metadata!;
+    dataset.setMetadata({ ...original, id: "other" });
+    dataset.setMetadata(original);
+    studyArea.restore();
+    expect(dataset.geoJson).toEqual(area);
+    expect(useMessagesStore().messages).toEqual([
+      {
+        type: "warning",
+        message: expect.stringContaining("Browser storage is unavailable"),
+      },
+    ]);
+  });
+
+  it("keeps a cleared area cleared when storage still contains the old value", () => {
+    const studyArea = useStudyArea();
+    studyArea.save(area);
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
+      throw new DOMException("Blocked", "SecurityError");
+    });
+    studyArea.clear();
+    studyArea.restore();
+    expect(useDatasetStore().geoJson).toBeNull();
+    expect(localStorage.getItem(useDatasetStore().geoJsonKey)).not.toBeNull();
+    expect(useMessagesStore().messages).toHaveLength(1);
+  });
+
+  it("retains the new area when writes exceed quota, then removes the override after a successful save", () => {
+    const studyArea = useStudyArea();
+    const write = vi
+      .spyOn(Storage.prototype, "setItem")
+      .mockImplementation(() => {
+        throw new DOMException("Full", "QuotaExceededError");
+      });
+    studyArea.save(area);
+    const dataset = useDatasetStore();
+    expect(dataset.geoJson).toEqual(area);
+    expect(dataset.unpersistedStudyAreas[dataset.geoJsonKey]).toEqual(area);
+    write.mockRestore();
+    studyArea.save(area);
+    expect(dataset.unpersistedStudyAreas).toEqual({});
+    expect(JSON.parse(localStorage.getItem(dataset.geoJsonKey)!)).toEqual(area);
   });
 });

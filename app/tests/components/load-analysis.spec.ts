@@ -8,7 +8,6 @@ import { useDatasetStore } from "@/stores/dataset";
 import metadata from "@/tests/fixtures/metadata-1.0.0.json";
 
 const router = vi.hoisted(() => ({ push: vi.fn() }));
-vi.mock("vue-router", () => ({ useRouter: () => router }));
 vi.stubGlobal("defineNuxtRouteMiddleware", (middleware: unknown) => middleware);
 const { default: requiresStudyArea } =
   await import("@/middleware/requires-study-area");
@@ -46,6 +45,7 @@ async function importRequest(wrapper: ReturnType<typeof mountLoader>) {
 describe("LoadAnalysis", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
+    vi.stubGlobal("useRouter", () => router);
     localStorage.clear();
     router.push.mockReset();
     vi.stubGlobal(
@@ -94,10 +94,31 @@ describe("LoadAnalysis", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const wrapper = mountLoader();
 
+    const input = wrapper.find("input").element as HTMLInputElement;
+    const reset = vi.spyOn(input, "value", "set");
     await importRequest(wrapper);
 
+    expect(reset).toHaveBeenCalledWith("");
     expect(router.push).not.toHaveBeenCalled();
     expect(alert).toHaveBeenCalledWith("Unable to import the request file.");
     wrapper.unmount();
+  });
+
+  it("opens the file input owned by the clicked loader when two controls are mounted", async () => {
+    const first = mountLoader();
+    const second = mountLoader();
+    const firstClick = vi.spyOn(
+      first.find("input").element as HTMLInputElement,
+      "click",
+    );
+    const secondClick = vi.spyOn(
+      second.find("input").element as HTMLInputElement,
+      "click",
+    );
+    await second.find("button").trigger("click");
+    expect(firstClick).not.toHaveBeenCalled();
+    expect(secondClick).toHaveBeenCalledOnce();
+    first.unmount();
+    second.unmount();
   });
 });

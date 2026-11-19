@@ -22,7 +22,7 @@ const dataset = metadata.datasets[0] as Dataset;
 describe("time-series contract", () => {
   it("keeps generated request and result types synchronized with the backend schema snapshot", async () => {
     expect(
-      readFileSync(resolve(__dirname, "../../types/timeseries.ts"), "utf8"),
+      readFileSync(resolve(import.meta.dirname, "../../types/timeseries.ts"), "utf8"),
     ).toBe(await generateTimeseriesTypes());
   });
 

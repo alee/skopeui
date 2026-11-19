@@ -22,7 +22,6 @@ export function useWorkflowSteps() {
   const canVisualize = computed(
     () => hasValidStudyArea.value && variableId.value != null,
   );
-  const canAnalyze = computed(() => canVisualize.value);
   const currentStepIndex = computed(() =>
     appStore.stepNames.findIndex((x) => x === (route.name as string)),
   );
@@ -38,7 +37,7 @@ export function useWorkflowSteps() {
           params: { id: route.params.id as string, variable: variableId.value },
         }
       : undefined,
-    canAnalyze.value
+    canVisualize.value
       ? {
           name: "dataset-id-analyze-variable",
           params: { id: route.params.id as string, variable: variableId.value },
@@ -51,13 +50,13 @@ export function useWorkflowSteps() {
       case 0:
         if (stepId === 1) return !hasMetadata.value;
         if (stepId === 2) return !canVisualize.value;
-        if (stepId === 3) return !canAnalyze.value;
+        if (stepId === 3) return !canVisualize.value;
         return false;
       case 1:
         if ([2, 3].includes(stepId)) return !canVisualize.value;
         return false;
       case 2:
-        if (stepId === 3) return !canAnalyze.value;
+        if (stepId === 3) return !canVisualize.value;
         return false;
       default:
         return false;

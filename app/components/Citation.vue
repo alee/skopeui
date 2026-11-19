@@ -75,5 +75,3 @@ function copyToClipboard(evt: MouseEvent) {
   });
 }
 </script>
-
-<style></style>

@@ -16,6 +16,8 @@ function mountSearch() {
   return mount(Search, {
     global: {
       stubs: {
+        "v-chip": true,
+        "v-list-item": true,
         "v-form": passThrough,
         "v-row": passThrough,
         "v-col": passThrough,

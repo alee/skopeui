@@ -78,7 +78,6 @@ vi.mock("@/stores/messages", () => ({
     error: vi.fn(),
     info: vi.fn(),
     dismiss: vi.fn(),
-    clearMessages: vi.fn(),
   }),
 }));
 

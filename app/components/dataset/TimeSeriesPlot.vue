@@ -153,6 +153,7 @@ import {
   nextTick,
   defineAsyncComponent,
 } from "vue";
+import type { VForm } from "vuetify/components";
 import type { PlotImageApi, ExportTrace } from "@/types/plot";
 import type { Annotation, Layout, Config, Shape } from "plotly.js";
 import AreaReadout from "@/components/dataset/AreaReadout.vue";
@@ -195,7 +196,7 @@ const localTemporalRangeMin = ref(1);
 const localTemporalRangeMax = ref(new Date().getFullYear());
 const isTemporalRangeEditable = ref(false);
 const isTemporalRangeValid = ref(false);
-const temporalRangeForm = ref<any>(null);
+const temporalRangeForm = ref<InstanceType<typeof VForm> | null>(null);
 let plotImageApi: PlotImageApi | null = null;
 function setPlotImageApi(api: PlotImageApi | null) {
   plotImageApi = api;
@@ -249,13 +250,10 @@ const axis = computed(() =>
 );
 const minStep = computed(() => datasetStore.minYear);
 const maxStep = computed(() => datasetStore.maxYear);
-const variable = computed(() => datasetStore.variable as any);
+const variable = computed(() => datasetStore.variable);
 const timeSeriesData = computed(() => props.traces ?? []);
 const hasMultipleTimeSeries = computed(
   () => props.traces != null && props.traces.length > 1,
-);
-const hasTimeSeries = computed(
-  () => props.traces != null && props.traces[0]?.x?.length > 0,
 );
 const canHandleTimeSeriesRequest = computed(
   () => datasetStore.canHandleTimeSeriesRequest,

@@ -37,7 +37,6 @@
           v-model="keywordSearchQuery"
           clearable
           variant="outlined"
-          data-toggle="hideseek"
           label="Keyword search"
           append-inner-icon="mdi-magnify"
         />
@@ -108,5 +107,3 @@ const categories = computed(() => {
   return Array.from(categorySet);
 });
 </script>
-
-<style scoped></style>

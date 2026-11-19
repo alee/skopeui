@@ -70,6 +70,8 @@ export const useDatasetStore = defineStore("dataset", {
       max: number;
     } | null,
     geoJson: null as unknown,
+    // Session overrides for study-area writes that browser storage rejected.
+    unpersistedStudyAreas: {} as Record<string, unknown>,
     temporalRange: [1, new Date().getFullYear()] as [number, number],
     timeSeriesRequestStatus: { ...LOADING_STATUS },
     // The API's area: the selected shape, measured in the dataset's CRS. Both

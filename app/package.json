@@ -2,6 +2,7 @@
   "name": "skopeui",
   "version": "v2022.05.1-nuxt3-ready",
   "private": true,
+  "type": "module",
   "description": "Skope dataset discovery, visualization, and analysis frontend",
   "engines": {
     "node": "^26.13.1",

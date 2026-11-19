@@ -38,19 +38,11 @@ export default defineNuxtConfig({
       link: [
         {
           rel: "stylesheet",
-          href: "https://fonts.googleapis.com/css?family=Material+Icons",
-        },
-        {
-          rel: "stylesheet",
           href: "https://fonts.googleapis.com/css?family=Roboto:300,400,500,700",
         },
         {
           rel: "stylesheet",
           href: "https://fonts.googleapis.com/css?family=Bitter:400,700",
-        },
-        {
-          rel: "stylesheet",
-          href: "https://use.fontawesome.com/releases/v5.11.2/css/all.css",
         },
       ],
     },
@@ -89,6 +81,8 @@ export default defineNuxtConfig({
   },
 
   vuetify: {
+    // Keep Nuxt useLayout distinct from Vuetify useVLayout.
+    moduleOptions: { prefixComposables: true },
     vuetifyOptions: {
       theme: {
         defaultTheme: "light",
