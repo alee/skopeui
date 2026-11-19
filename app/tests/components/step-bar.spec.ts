@@ -1,6 +1,6 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import StepBar from "@/components/StepBar.vue";
 import metadataFixture from "@/tests/fixtures/metadata-1.0.0.json";
@@ -10,8 +10,6 @@ const route = vi.hoisted(() => ({
   name: "dataset-id",
   params: {} as Record<string, string>,
 }));
-
-vi.mock("vue-router", () => ({ useRoute: () => route }));
 
 const VBtnStub = {
   props: ["to", "disabled", "variant"],
@@ -36,6 +34,7 @@ function stepState(wrapper: ReturnType<typeof mountBar>) {
 
 describe("StepBar", () => {
   beforeEach(() => {
+    vi.stubGlobal("useRoute", () => route);
     setActivePinia(createPinia());
     route.params = { id: "paleocar_v3" };
   });
@@ -103,3 +102,5 @@ describe("StepBar", () => {
     expect(analyze.attributes("disabled")).toBeDefined();
   });
 });
+
+afterEach(() => vi.unstubAllGlobals());

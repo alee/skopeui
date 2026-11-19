@@ -6,7 +6,8 @@
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import Plotly from "plotly.js/lib/core";
 import Scatter from "plotly.js/lib/scatter";
-import type { Data, Layout, Config } from "plotly.js";
+import type { Data, Layout, Config, Shape } from "plotly.js";
+import type { PlotImageApi, ExportTrace } from "@/types/plot";
 import { stableJson } from "@/utils/extractionIdentity";
 
 Plotly.register([Scatter]);
@@ -15,41 +16,77 @@ const props = defineProps<{
   data: Data[];
   layout?: Partial<Layout>;
   options?: Partial<Config>;
+  shapes?: Partial<Shape>[];
 }>();
 
 const emit = defineEmits<{
   (e: "click", payload: unknown): void;
   (e: "ready", ready: boolean): void;
+  (e: "api-ready", api: PlotImageApi | null): void;
 }>();
 
 type PlotContainer = HTMLDivElement & {
   data?: unknown[];
   layout?: Partial<Layout>;
+  on?: (event: "plotly_click", handler: (payload: unknown) => void) => void;
 };
 const container = ref<PlotContainer | null>(null);
-let renderVersion = 0;
+let disposed = false;
+let mounted = false;
+let updating = false;
+let pendingRender = false;
+let pendingShapes = false;
 let isReady = false;
 let resizeObserver: ResizeObserver | null = null;
 let resizeFrame: number | null = null;
 
-async function renderPlot(
-  data = props.data,
-  layout = props.layout,
-  options = props.options,
-) {
-  const target = container.value;
-  if (!target) return;
-  const version = ++renderVersion;
+// Plotly mutates its inputs. Keep those mutations out of Vue's reactive props.
+function clone<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function requestUpdate(full: boolean) {
+  pendingRender ||= full;
+  pendingShapes = true;
   isReady = false;
   emit("ready", false);
+  if (mounted) void updatePlot();
+}
+
+// Serialize Plotly work and coalesce changes received during an update.
+async function updatePlot() {
+  const target = container.value;
+  if (!target || updating || disposed) return;
+  updating = true;
   try {
-    await Plotly.react(target, data || [], layout || {}, options || {});
-    if (container.value !== target || version !== renderVersion) return;
-    isReady = true;
-    emit("ready", true);
+    while (!disposed && (pendingRender || pendingShapes)) {
+      const full = pendingRender;
+      pendingRender = pendingShapes = false;
+      if (full) {
+        await Plotly.react(
+          target,
+          clone(props.data),
+          clone({
+            ...props.layout,
+            shapes: props.shapes ?? props.layout?.shapes ?? [],
+          }),
+          clone(props.options ?? {}),
+        );
+        if (!disposed) scheduleResize();
+      } else {
+        await Plotly.relayout(target, { shapes: clone(props.shapes ?? []) });
+      }
+    }
+    if (!disposed) {
+      isReady = true;
+      emit("ready", true);
+    }
   } catch (error) {
-    if (container.value === target && version === renderVersion)
-      console.error("Unable to render plot", error);
+    if (!disposed) console.error("Unable to render plot", error);
+  } finally {
+    updating = false;
+    if (disposed) Plotly.purge(target);
+    else if (pendingRender || pendingShapes) void updatePlot();
   }
 }
 
@@ -81,17 +118,13 @@ function scheduleResize() {
 }
 
 async function toImages(
-  expectedData?: Array<{ name?: unknown; x?: unknown; y?: unknown }>,
+  expectedData?: ExportTrace[],
 ): Promise<{ svg: string; png: string }> {
-  if (!isReady || !container.value)
+  if (!isReady || pendingRender || pendingShapes || !container.value)
     throw new Error("The plot is not ready for export.");
   // Capture the rendered view, including user zoom and trace visibility. The
   // detached figures survive updates or disposal of the on-screen plot.
-  const data = container.value.data as Array<{
-    name?: unknown;
-    x?: unknown;
-    y?: unknown;
-  }>;
+  const data = (container.value.data ?? []) as ExportTrace[];
   const identity = (traces: typeof data) =>
     traces.map(({ name, x, y }) => ({ name, x, y }));
   if (
@@ -121,16 +154,13 @@ defineExpose({ toImages });
 
 onMounted(async () => {
   await nextTick();
-  await renderPlot();
-  if (!container.value) return;
-  scheduleResize();
-
-  if (container.value != null) {
-    (container.value as any).on("plotly_click", (eventData: unknown) => {
-      emit("click", eventData);
-    });
-  }
-
+  if (disposed) return;
+  mounted = true;
+  emit("api-ready", { toImages });
+  pendingRender = pendingShapes = true;
+  await updatePlot();
+  if (disposed) return;
+  container.value?.on?.("plotly_click", (payload) => emit("click", payload));
   if (typeof ResizeObserver !== "undefined" && container.value != null) {
     resizeObserver = new ResizeObserver(() => {
       scheduleResize();
@@ -142,23 +172,21 @@ onMounted(async () => {
     }
   }
 
-  if (typeof window !== "undefined") {
-    window.addEventListener("resize", scheduleResize);
-  }
+  if (!resizeObserver) window.addEventListener("resize", scheduleResize);
 });
 
 watch(
   () => [props.data, props.layout, props.options],
-  async () => {
-    await nextTick();
-    await renderPlot();
-    scheduleResize();
-  },
-  { deep: true },
+  () => requestUpdate(true),
+);
+watch(
+  () => props.shapes,
+  () => requestUpdate(false),
 );
 
 onBeforeUnmount(() => {
-  renderVersion++;
+  disposed = true;
+  emit("api-ready", null);
   isReady = false;
   emit("ready", false);
   resizeObserver?.disconnect();
@@ -170,7 +198,7 @@ onBeforeUnmount(() => {
     }
   }
 
-  if (container.value != null) {
+  if (container.value != null && !updating) {
     Plotly.purge(container.value);
   }
 });

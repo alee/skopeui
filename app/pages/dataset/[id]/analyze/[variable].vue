@@ -167,21 +167,31 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onBeforeUnmount } from "vue";
+import {
+  ref,
+  reactive,
+  toRefs,
+  nextTick,
+  computed,
+  watch,
+  onBeforeUnmount,
+} from "vue";
 import { useMounted, whenever } from "@vueuse/core";
-import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
 import TimeSeriesPlot from "@/components/dataset/TimeSeriesPlot.vue";
 import SubHeader from "@/components/dataset/SubHeader.vue";
 import LoadingSpinner from "@/components/LoadingSpinner.vue";
 import { toISODate } from "@/utils/stats";
 import {
-  DEFAULT_CENTERED_SMOOTHING_WIDTH,
+  defaultAnalysisForm,
+  analysisOptionsFromForm,
+  analysisFormFromRequest,
+  transformOptionFor,
   SMOOTHING_OPTIONS,
   TRANSFORM_OPTIONS,
 } from "@/utils/analysisOptions";
+import type { TimeSeriesPlotApi } from "@/types/plot";
 import type { DraftTimeseriesRequest } from "@/types/api";
-import type { TimeseriesRequest } from "@/types/timeseries";
 import { buildReadme } from "@/utils/buildReadme";
 import { useAnalysisStore } from "@/stores/analysis";
 import { useDatasetStore } from "@/stores/dataset";
@@ -220,9 +230,9 @@ const datasetStore = useDatasetStore();
 const metadataActions = useDatasetMetadata();
 const studyArea = useStudyArea();
 const { run: requestTimeSeries } = useTimeSeriesRequest("analyze");
-const { $download } = useNuxtApp() as any;
+const { $download } = useNuxtApp();
 
-const plot = ref<any>(null);
+const plot = ref<TimeSeriesPlotApi | null>(null);
 const isPlotReady = ref(false);
 const isExporting = ref(false);
 const exportMessages = useMessagesStore();
@@ -230,17 +240,23 @@ const canExport = computed(
   () =>
     analysisStore.hasCurrentResult && isPlotReady.value && !isExporting.value,
 );
-const zScoreMovingIntervalTimeSteps = ref(25);
+function copyFormDraft(draft: ReturnType<typeof defaultAnalysisForm>) {
+  return {
+    ...draft,
+    timeRange: { lb: { ...draft.timeRange.lb }, ub: { ...draft.timeRange.ub } },
+  };
+}
+const form = reactive(defaultAnalysisForm());
+const {
+  zonalStatistic,
+  smoothingOption,
+  smoothingTimeStep,
+  transformOption,
+  timeRange,
+  zScoreMovingIntervalTimeSteps,
+} = toRefs(form);
 const analysisFormValid = ref(true);
-const zonalStatistic = ref<TimeseriesRequest["zonal_statistic"]>("mean");
 const yAxisLabel = ref<string | null>(null);
-const smoothingOption = ref("none");
-const smoothingTimeStep = ref(DEFAULT_CENTERED_SMOOTHING_WIDTH);
-const transformOption = ref("none");
-const timeRange = ref({
-  lb: { year: 1500, month: 1 },
-  ub: { year: 1800, month: 1 },
-});
 
 const zonalStatisticOptions = [
   { label: "Mean of its pixels", id: "mean" },
@@ -256,52 +272,13 @@ const statisticsHeaders = [
 const transformOptions = TRANSFORM_OPTIONS;
 const smoothingOptions = SMOOTHING_OPTIONS;
 
-// Proxy that forwards property reads/writes to the composition API refs,
-// compatible with the analyzeVue interface expected by SMOOTHING_OPTIONS /
-// TRANSFORM_OPTIONS toRequestData / fromRequestData functions.
-const analyzeVue: any = {
-  get temporalRange() {
-    return temporalRange.value;
-  },
-  get smoothingOption() {
-    return smoothingOption.value;
-  },
-  set smoothingOption(v) {
-    smoothingOption.value = v;
-  },
-  get smoothingTimeStep() {
-    return smoothingTimeStep.value;
-  },
-  set smoothingTimeStep(v) {
-    smoothingTimeStep.value = v;
-  },
-  get transformOption() {
-    return transformOption.value;
-  },
-  set transformOption(v) {
-    transformOption.value = v;
-  },
-  get timeRange() {
-    return timeRange.value;
-  },
-  set timeRange(v) {
-    timeRange.value = v;
-  },
-  get zScoreMovingIntervalTimeSteps() {
-    return zScoreMovingIntervalTimeSteps.value;
-  },
-  set zScoreMovingIntervalTimeSteps(v) {
-    zScoreMovingIntervalTimeSteps.value = v;
-  },
-};
-
 const metadata = computed(() => datasetStore.metadata);
 const isLoadingMetadata = computed(() => metadata.value == null);
 const temporalRange = computed(() => datasetStore.temporalRange);
 // The "selected interval" z-score uses the range on screen as its reference,
 // so its label names that range.
 const transformItems = computed(() =>
-  transformOptions.map((option: any) => {
+  transformOptions.map((option) => {
     if (option.id !== "zscoreSelected") return option;
     const [start, end] = temporalRange.value;
     const isFullRecord =
@@ -318,7 +295,6 @@ const minYear = computed(() => datasetStore.minYear);
 const maxYear = computed(() => datasetStore.maxYear);
 const studyAreaGeoJson = computed(() => datasetStore.geoJson);
 const hasSmoothingOption = computed(() => smoothingOption.value !== "none");
-const hasTransformOption = computed(() => transformOption.value !== "none");
 const isStudyAreaPolygon = computed(() => {
   const geojson = studyAreaGeoJson.value as any;
   if (!geojson) return false;
@@ -348,32 +324,9 @@ const traces = computed(() => {
     { ...datasetStore.filteredTimeSeries(), type: "scatter", name: "Original" },
   ];
 });
-const smoothingFunction = computed(() => {
-  const option = smoothingOptions.find(
-    (x: any) => x.id === smoothingOption.value,
-  ) as any;
-  return option?.toRequestData(analyzeVue);
-});
-const transformRequestData = computed(() => {
-  const option = transformOptions.find(
-    (x: any) => x.id === transformOption.value,
-  ) as any;
-  return option?.toRequestData(analyzeVue);
-});
-const requestedSeriesOptions = computed<
-  TimeseriesRequest["requested_series_options"]
->(() => {
-  const series: TimeseriesRequest["requested_series_options"] = [
-    {
-      name: hasTransformOption.value ? "Transformed" : "Original",
-      smoother: { type: "NoSmoother" },
-    },
-  ];
-  if (hasSmoothingOption.value) {
-    series.push({ name: "Smoothed", smoother: smoothingFunction.value });
-  }
-  return series;
-});
+const formOptions = computed(() =>
+  analysisOptionsFromForm(form, temporalRange.value),
+);
 
 function transformHint(transform: string) {
   switch (transform) {
@@ -399,19 +352,21 @@ function smoothingHint(smooth: string) {
   }
 }
 
-async function retrieveAnalysis(data: any) {
+async function retrieveAnalysis(data: Partial<DraftTimeseriesRequest>) {
   // Like visualize: say there's no area instead of leaving a blank plot.
   if (!data.selected_area) {
     datasetStore.setTimeSeriesNoArea();
     return;
   }
   if (Object.values(data).some((v) => v == undefined)) return;
-  await requestTimeSeries(data);
+  await requestTimeSeries(data as DraftTimeseriesRequest);
 }
 
 function initializeRequestData() {
-  const incoming: any = { ...datasetStore.defaultApiRequestData };
-  const existing = analysisStore.requestData as any;
+  const incoming: DraftTimeseriesRequest = {
+    ...datasetStore.defaultApiRequestData,
+  };
+  const existing = analysisStore.requestData;
   if (existing?.transform) incoming.transform = existing.transform;
   if (existing?.zonal_statistic)
     incoming.zonal_statistic = existing.zonal_statistic;
@@ -421,31 +376,8 @@ function initializeRequestData() {
   return incoming;
 }
 
-function loadTransformOption(transform: any, timeRange: any) {
-  if (!transform) return;
-  const option = transformOptions.find((x: any) =>
-    x.matches(transform, timeRange),
-  ) as any;
-  if (option) option.fromRequestData(analyzeVue, transform);
-}
-
-function loadSmoothingOption(requestedSeriesOptions: any[]) {
-  const smoothed = requestedSeriesOptions?.find(
-    (x: any) => x.name === "Smoothed",
-  );
-  if (smoothed) {
-    const option = smoothingOptions.find(
-      (x: any) => x.method === smoothed.smoother.method,
-    ) as any;
-    if (option) option.fromRequestData(analyzeVue, smoothed.smoother);
-  }
-}
-
-async function initializeFormData(requestData: any) {
-  if (!requestData) return;
-  zonalStatistic.value = requestData.zonal_statistic ?? zonalStatistic.value;
-  loadSmoothingOption(requestData.requested_series_options ?? []);
-  loadTransformOption(requestData.transform, requestData.time_range);
+function initializeFormData(request: Partial<DraftTimeseriesRequest>) {
+  Object.assign(form, analysisFormFromRequest(form, request));
 }
 
 function clearTransformedTimeSeries() {
@@ -463,6 +395,7 @@ async function exportData() {
       analysisStore.response,
     );
     // The plot captures its data and current zoom synchronously before rendering either image.
+    if (!plot.value) throw new Error("The plot is not ready for export.");
     const plotImages = await plot.value.getTimeSeriesPlotImage(snapshot.traces);
     const [png, svg] = await Promise.all([
       fetch(plotImages.png).then((image) => image.blob()),
@@ -504,19 +437,18 @@ async function updateTimeSeries() {
     return;
   const requestData: DraftTimeseriesRequest = {
     ...datasetStore.defaultApiRequestData,
-    zonal_statistic: zonalStatistic.value,
-    transform: transformRequestData.value,
+    ...formOptions.value,
     time_range: {
       gte: toISODate(temporalRange.value[0]),
       lte: toISODate(temporalRange.value[1]),
     },
-    requested_series_options: requestedSeriesOptions.value,
   };
   analysisStore.setRequestData(requestData);
 }
 
 // A z-score needs at least two values to have a spread to divide by.
-function validateMinYear(year: number) {
+function validateMinYear(value: number | string) {
+  const year = Number(value);
   if (year < minYear.value) return `Please enter a min year > ${minYear.value}`;
   if (year > maxYear.value)
     return `Please enter a min year <= ${maxYear.value}`;
@@ -525,7 +457,8 @@ function validateMinYear(year: number) {
   return true;
 }
 
-function validateMaxYear(year: number) {
+function validateMaxYear(value: number | string) {
+  const year = Number(value);
   if (year < minYear.value) return `Please enter a max year > ${minYear.value}`;
   if (year > maxYear.value)
     return `Please enter a max year <= ${maxYear.value}`;
@@ -569,20 +502,17 @@ watch(
   () => analysisStore.requestData,
   async (data) => {
     if (!data) return;
-    await initializeFormData(data);
-    await retrieveAnalysis(data as any);
+    initializeFormData(data);
+    await retrieveAnalysis(data);
     // Label the requested result independently of unsubmitted form edits.
     const appliedTransform = data.transform
-      ? transformOptions.find((option: any) =>
-          option.matches(data.transform, data.time_range),
-        )
-      : undefined;
+      ? transformOptionFor(data.transform, data.time_range)
+      : "none";
     yAxisLabel.value =
-      appliedTransform && appliedTransform.id !== "none"
-        ? (transformItems.value.find(
-            (option: any) => option.id === appliedTransform.id,
-          )?.label ?? null)
-        : "";
+      appliedTransform === "none"
+        ? ""
+        : (transformItems.value.find((option) => option.id === appliedTransform)
+            ?.label ?? null);
   },
 );
 
@@ -609,36 +539,18 @@ whenever(
   async () => {
     studyArea.restore();
     const requestData = initializeRequestData();
-    await initializeFormData(requestData);
+    initializeFormData(requestData);
+    // Let the applied-request watcher run before restoring unsubmitted edits.
+    await nextTick();
     const draft = analysisStore.formDrafts?.[draftKey];
-    if (draft) {
-      zonalStatistic.value = draft.zonalStatistic;
-      smoothingOption.value = draft.smoothingOption;
-      smoothingTimeStep.value = draft.smoothingTimeStep;
-      transformOption.value = draft.transformOption;
-      zScoreMovingIntervalTimeSteps.value = draft.zScoreMovingIntervalTimeSteps;
-      timeRange.value = {
-        lb: { ...draft.timeRange.lb },
-        ub: { ...draft.timeRange.ub },
-      };
-    }
+    if (draft) Object.assign(form, copyFormDraft(draft));
   },
   { once: true },
 );
 // Keep raw form input, including inactive windows and unsubmitted edits,
 // separate from the validated options used to request analysis.
 onBeforeUnmount(() => {
-  analysisStore.formDrafts[draftKey] = {
-    zonalStatistic: zonalStatistic.value,
-    smoothingOption: smoothingOption.value,
-    smoothingTimeStep: smoothingTimeStep.value,
-    transformOption: transformOption.value,
-    zScoreMovingIntervalTimeSteps: zScoreMovingIntervalTimeSteps.value,
-    timeRange: {
-      lb: { ...timeRange.value.lb },
-      ub: { ...timeRange.value.ub },
-    },
-  };
+  analysisStore.formDrafts[draftKey] = copyFormDraft(form);
 });
 </script>
 

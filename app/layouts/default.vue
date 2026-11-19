@@ -27,22 +27,22 @@ import PageLoadingOverlay from "@/components/PageLoadingOverlay.vue";
 import Messages from "@/components/Messages.vue";
 import Footer from "@/components/Footer.vue";
 import UpdateRequired from "@/components/UpdateRequired.vue";
-import { watch } from "vue";
-import { useRoute } from "vue-router";
+import { onScopeDispose } from "vue";
 import { useDisplay } from "vuetify";
 import { useMessagesStore } from "@/stores/messages";
 import { useMetadataStore } from "@/stores/metadata";
 
-const route = useRoute();
+const router = useRouter();
 const { mdAndUp } = useDisplay();
 const messagesStore = useMessagesStore();
 const metadataStore = useMetadataStore();
 
-// Messages belong to the page that raised them.
-watch(
-  () => route.path,
-  () => messagesStore.clearOnNavigation(),
-);
+// Clear at navigation commit, before the next page can raise messages. Nuxt's
+// route snapshot updates later, after that page is displayed.
+const removeNavigationHook = router.afterEach((to, from, failure) => {
+  if (!failure && to.path !== from.path) messagesStore.clearOnNavigation();
+});
+onScopeDispose(removeNavigationHook);
 </script>
 
 <style scoped>

@@ -22,13 +22,6 @@ let metadataActions: any;
 let studyArea: any;
 let extractionStore: any;
 
-vi.mock("vue-router", () => ({
-  useRoute: () => ({
-    params: routeParams,
-    fullPath: `/dataset/${routeParams.id}/visualize/${routeParams.variable}`,
-  }),
-}));
-
 vi.mock("@/components/dataset/Map.client.vue", () => ({
   default: {
     name: "MapStub",
@@ -113,6 +106,10 @@ const layoutStubs = {
 
 describe("route /dataset/:id/visualize/:variable", () => {
   beforeEach(() => {
+    vi.stubGlobal("useRoute", () => ({
+      params: routeParams,
+      fullPath: `/dataset/${routeParams.id}/visualize/${routeParams.variable}`,
+    }));
     installNuxtTestGlobals();
 
     datasetStore = createDatasetStore({ hasGeoJson: true });

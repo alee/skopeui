@@ -4,6 +4,7 @@ import PlotlyClient from "@/components/dataset/PlotlyClient.vue";
 
 const plotly = vi.hoisted(() => ({
   react: vi.fn(),
+  relayout: vi.fn(),
   toImage: vi.fn(),
   purge: vi.fn(),
   register: vi.fn(),
@@ -93,4 +94,75 @@ it("rejects a rendered plot whose data does not match the captured analysis", as
   ).rejects.toThrow("does not match");
   expect(plotly.toImage).not.toHaveBeenCalled();
   wrapper.unmount();
+});
+
+it("updates only the marker without replacing traces or the user's zoom", async () => {
+  const data = [{ x: [1, 2], y: [10, 20] }];
+  const layout = { xaxis: { range: [1, 2] as [number, number] } };
+  const wrapper = mount(PlotlyClient, { props: { data, layout, shapes: [] } });
+  await flushPromises();
+  const target = wrapper.element as any;
+  target.layout.xaxis.range = [1.2, 1.8];
+  plotly.relayout.mockImplementation(async (node, update) => {
+    Object.assign(node.layout, update);
+  });
+  const shapes = [{ type: "line" as const, x0: 1.5, x1: 1.5 }];
+  await wrapper.setProps({ shapes });
+  await flushPromises();
+  expect(plotly.react).toHaveBeenCalledTimes(1);
+  expect(plotly.relayout).toHaveBeenCalledWith(target, { shapes });
+  expect(target.layout.xaxis.range).toEqual([1.2, 1.8]);
+  expect(layout.xaxis.range).toEqual([1, 2]);
+  expect(wrapper.emitted("api-ready")?.[0]?.[0]).toMatchObject({
+    toImages: expect.any(Function),
+  });
+  wrapper.unmount();
+  expect(wrapper.emitted("api-ready")?.at(-1)).toEqual([null]);
+});
+
+it("serializes renders and coalesces intervening data changes to the latest request", async () => {
+  const wrapper = mount(PlotlyClient, { props: { data: [] } });
+  await flushPromises();
+  const render = plotly.react.getMockImplementation()!;
+  let finish!: () => void;
+  plotly.react.mockImplementationOnce(
+    (...args) =>
+      new Promise<void>((resolve) => {
+        finish = () => {
+          void render(...args);
+          resolve();
+        };
+      }),
+  );
+  await wrapper.setProps({ data: [{ x: [1], y: [10] }] });
+  await wrapper.setProps({ data: [{ x: [1], y: [20] }] });
+  await wrapper.setProps({ data: [{ x: [1], y: [30] }] });
+  expect(plotly.react).toHaveBeenCalledTimes(2);
+  finish();
+  await flushPromises();
+  expect(plotly.react).toHaveBeenCalledTimes(3);
+  expect((wrapper.element as any).data[0].y).toEqual([30]);
+  expect(wrapper.emitted("ready")?.at(-1)).toEqual([true]);
+  wrapper.unmount();
+});
+
+it("discards queued updates and purges after an in-flight render finishes on unmount", async () => {
+  const wrapper = mount(PlotlyClient, { props: { data: [] } });
+  await flushPromises();
+  let finish!: () => void;
+  plotly.react.mockImplementationOnce(
+    () =>
+      new Promise<void>((resolve) => {
+        finish = resolve;
+      }),
+  );
+  await wrapper.setProps({ data: [{ x: [1], y: [10] }] });
+  await wrapper.setProps({ data: [{ x: [1], y: [20] }] });
+  wrapper.unmount();
+  expect(plotly.purge).not.toHaveBeenCalled();
+  finish();
+  await flushPromises();
+  expect(plotly.react).toHaveBeenCalledTimes(2);
+  expect(plotly.purge).toHaveBeenCalledTimes(1);
+  expect(wrapper.emitted("ready")?.at(-1)).toEqual([false]);
 });

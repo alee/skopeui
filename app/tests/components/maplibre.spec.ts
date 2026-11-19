@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createGeomanInstance } from "@geoman-io/maplibre-geoman-free";
 import MapLibre from "@/components/dataset/MapLibre.client.vue";
 import metadataFixture from "@/tests/fixtures/metadata-1.0.0.json";
-import { SkopeColorbar } from "@/utils/SkopeColorbar";
+import { SkopeColorbar } from "@/utils/skopeColorbar";
 
 const ppt = metadataFixture.datasets[0]!.variables[0]!;
 
@@ -162,10 +162,6 @@ const mocks = vi.hoisted(() => {
   };
 });
 
-vi.mock("vue-router", () => ({
-  useRoute: () => mocks.routeState,
-}));
-
 vi.mock("@/stores/app", () => ({
   useAppStore: () => mocks.appStore,
 }));
@@ -230,6 +226,7 @@ const uiStubs = {
 
 describe("MapLibre", () => {
   beforeEach(() => {
+    vi.stubGlobal("useRoute", () => mocks.routeState);
     vi.stubGlobal("useRuntimeConfig", () => ({
       public: {
         apiBase: "https://test.example.com",

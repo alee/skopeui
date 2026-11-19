@@ -1,79 +1,97 @@
 import { describe, expect, it } from "vitest";
+import {
+  analysisFormFromRequest,
+  analysisOptionsFromForm,
+  defaultAnalysisForm,
+  transformOptionFor,
+  TRANSFORM_OPTIONS,
+} from "@/utils/analysisOptions";
 
-import { TRANSFORM_OPTIONS } from "@/utils/analysisOptions";
-
-// The analyze page's form, as the options read and write it.
-function form(overrides: Record<string, unknown> = {}) {
-  return {
-    transformOption: "none",
-    temporalRange: [103, 2000],
-    timeRange: { lb: { year: 900, month: 1 }, ub: { year: 1100, month: 1 } },
-    zScoreMovingIntervalTimeSteps: 25,
-    ...overrides,
-  } as any;
-}
-
-// The request's own time range: the range on screen.
 const SHOWN = { gte: "0103-01-01", lte: "2000-01-01" };
-
-function optionFor(transform: any, timeRange: any = SHOWN) {
-  return TRANSFORM_OPTIONS.filter((option: any) =>
-    option.matches(transform, timeRange),
-  );
-}
-
-describe("TRANSFORM_OPTIONS", () => {
-  it.each(TRANSFORM_OPTIONS.map((option: any) => [option.id, option]))(
-    "maps %s's request back to the same option and form",
-    (id, option: any) => {
-      const transform = option.toRequestData(form());
-      expect(optionFor(transform).map((o: any) => o.id)).toEqual([id]);
-
-      const restored = form({
-        timeRange: { lb: { year: 1, month: 1 }, ub: { year: 2, month: 1 } },
-        zScoreMovingIntervalTimeSteps: 3,
-      });
-      option.fromRequestData(restored, transform);
-      expect(restored.transformOption).toBe(id);
-    },
-  );
-
-  it("uses the range on screen as the selected interval's reference", () => {
-    const [zscoreSelected] = optionFor({
-      type: "ZScoreFixedInterval",
-      time_range: SHOWN,
-    }) as any[];
-
-    expect(zscoreSelected.id).toBe("zscoreSelected");
+describe("analysis form conversion", () => {
+  it.each(TRANSFORM_OPTIONS)("round trips $id", ({ id }) => {
+    const form = { ...defaultAnalysisForm(), transformOption: id };
+    const options = analysisOptionsFromForm(form, [103, 2000]);
+    expect(transformOptionFor(options.transform, SHOWN)).toBe(id);
     expect(
-      zscoreSelected.toRequestData(form({ temporalRange: [900, 1100] })),
+      analysisFormFromRequest(defaultAnalysisForm(), {
+        ...options,
+        time_range: SHOWN,
+      }).transformOption,
+    ).toBe(id);
+  });
+  it("sends the selected interval explicitly and reads legacy references", () => {
+    expect(
+      analysisOptionsFromForm(
+        { ...defaultAnalysisForm(), transformOption: "zscoreSelected" },
+        [900, 1100],
+      ).transform,
     ).toEqual({
       type: "ZScoreFixedInterval",
       time_range: { gte: "0900-01-01", lte: "1100-01-01" },
     });
+    expect(transformOptionFor({ type: "ZScoreFixedInterval" }, SHOWN)).toBe(
+      "zscoreSelected",
+    );
   });
-
-  it("reads a saved z-score without a reference as the selected interval", () => {
-    expect(
-      optionFor({ type: "ZScoreFixedInterval" }).map((o: any) => o.id),
-    ).toEqual(["zscoreSelected"]);
-  });
-
-  it("restores the fixed interval's years, not the request's dates", () => {
-    const [zscoreFixed] = optionFor({
-      type: "ZScoreFixedInterval",
-      time_range: { gte: "0900-01-01", lte: "1100-01-01" },
-    }) as any[];
-    const restored = form({ timeRange: null });
-
-    zscoreFixed.fromRequestData(restored, {
-      type: "ZScoreFixedInterval",
-      time_range: { gte: "0900-01-01", lte: "1100-01-01" },
+  it("restores fixed years and active widths while retaining inactive drafts", () => {
+    const draft = defaultAnalysisForm();
+    draft.smoothingTimeStep = "19";
+    draft.zScoreMovingIntervalTimeSteps = "37";
+    const result = analysisFormFromRequest(draft, {
+      transform: {
+        type: "ZScoreFixedInterval",
+        time_range: { gte: "0900-01-01", lte: "1100-01-01" },
+      },
+      time_range: SHOWN,
+      requested_series_options: [
+        { name: "Original", smoother: { type: "NoSmoother" } },
+      ],
     });
-
-    expect(restored.timeRange).toEqual({
+    expect(result.timeRange).toEqual({
       lb: { year: 900, month: 1 },
       ub: { year: 1100, month: 1 },
     });
+    expect(result.smoothingTimeStep).toBe("19");
+    expect(result.zScoreMovingIntervalTimeSteps).toBe("37");
+    expect(draft.timeRange.lb.year).toBe(1500);
+  });
+  it.each(["centeredAverage", "trailingAverage"] as const)(
+    "normalizes raw widths for %s without modifying the draft",
+    (smoothingOption) => {
+      const form = {
+        ...defaultAnalysisForm(),
+        smoothingOption,
+        smoothingTimeStep: "19",
+        transformOption: "zscoreMoving" as const,
+        zScoreMovingIntervalTimeSteps: "37",
+      };
+      const options = analysisOptionsFromForm(form, [103, 2000]);
+      expect(options.transform).toEqual({
+        type: "ZScoreMovingInterval",
+        width: 37,
+      });
+      expect(options.requested_series_options[1]?.smoother).toEqual({
+        type: "MovingAverageSmoother",
+        method: smoothingOption === "centeredAverage" ? "centered" : "trailing",
+        width: 19,
+      });
+      expect(
+        analysisFormFromRequest(defaultAnalysisForm(), options).smoothingOption,
+      ).toBe(smoothingOption);
+      expect(form.smoothingTimeStep).toBe("19");
+    },
+  );
+  it("clears an applied smoother when loading an unsmoothed request", () => {
+    expect(
+      analysisFormFromRequest(
+        { ...defaultAnalysisForm(), smoothingOption: "centeredAverage" },
+        {
+          requested_series_options: [
+            { name: "Original", smoother: { type: "NoSmoother" } },
+          ],
+        },
+      ).smoothingOption,
+    ).toBe("none");
   });
 });

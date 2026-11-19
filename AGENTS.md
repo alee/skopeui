@@ -8,6 +8,7 @@ SkopeUI is a Nuxt 4 frontend for paleoclimate dataset discovery, study-area sele
 - Citation assets in `app/generated/` are generated and ignored. Generate them through `make citations`; do not edit them directly.
 - The API URL comes from `runtimeConfig.public.apiBase` (`NUXT_PUBLIC_API_BASE`) at container startup. Staging must use `https://staging-api.openskope.org`. Make selects the environment default; `SKOPE_API_HOST_URL` remains a supported Make override. The Git build ID is compiled into Nuxt app config via `SKOPE_BUILD_ID`.
 - Pinia stores in `app/stores/` are authoritative for application state. Shared utilities belong in `app/utils/`.
+- Use PascalCase for Vue components, `useCamelCase` for composables, camelCase for utility and store modules, and kebab-case for tests and middleware. Preserve Nuxt route filename conventions.
 - Browser-dependent map components use the `.client.vue` suffix.
 - Keep study-area persistence behind `useStudyArea`. The application supports one active study feature, and circles must become polygons before persistence or API submission.
 - Preserve the study-area guard on the visualize and analyze routes (`middleware/requires-study-area.ts`): without an area they redirect to the select-area page.

@@ -25,12 +25,6 @@ let messagesStore: any;
 let saveAs: ReturnType<typeof vi.fn>;
 const imageExport = vi.hoisted(() => vi.fn());
 
-vi.mock("vue-router", () => ({
-  useRoute: () => ({
-    params: routeParams,
-  }),
-}));
-
 vi.mock("vuetify", () => ({
   useDisplay: () => ({ mdAndDown: false }),
 }));
@@ -124,6 +118,7 @@ const layoutStubs = {
 
 describe("route /dataset/:id/analyze/:variable", () => {
   beforeEach(() => {
+    vi.stubGlobal("useRoute", () => ({ params: routeParams }));
     saveAs = vi.fn();
     imageExport
       .mockReset()

@@ -1,6 +1,6 @@
 import type { Bbox } from "@/composables/useMapInitialViewport";
 import type { Map } from "maplibre-gl";
-import { SkopeColorbar, type ColorbarOptions } from "@/utils/SkopeColorbar";
+import { SkopeColorbar, type ColorbarOptions } from "@/utils/skopeColorbar";
 import { timestepKey } from "@/utils/timeAxis";
 import { FILL_LAYER_ID } from "./config";
 

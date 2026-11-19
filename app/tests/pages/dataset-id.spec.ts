@@ -21,13 +21,6 @@ let appStore: any;
 let metadataActions: any;
 let studyArea: any;
 
-vi.mock("vue-router", () => ({
-  useRoute: () => ({
-    params: routeParams,
-    query: routeQuery,
-  }),
-}));
-
 vi.mock("@/components/LoadingSpinner.vue", () => ({
   default: {
     name: "LoadingSpinnerStub",
@@ -85,6 +78,10 @@ const layoutStubs = {
 
 describe("route /dataset/:id", () => {
   beforeEach(() => {
+    vi.stubGlobal("useRoute", () => ({
+      params: routeParams,
+      query: routeQuery,
+    }));
     installNuxtTestGlobals();
 
     routeParams = { id: "paleocar" };

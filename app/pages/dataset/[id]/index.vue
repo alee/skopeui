@@ -53,7 +53,6 @@
 
 <script setup lang="ts">
 import { ref, computed } from "vue";
-import { useRoute } from "vue-router";
 import LoadingSpinner from "@/components/LoadingSpinner.vue";
 import SubHeader from "@/components/dataset/SubHeader.vue";
 import Map from "@/components/dataset/Map.client.vue";

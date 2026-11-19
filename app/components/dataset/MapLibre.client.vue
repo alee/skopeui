@@ -101,14 +101,13 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
-import { useRoute } from "vue-router";
 import { setWorkerUrl } from "maplibre-gl";
 import mapWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "@geoman-io/maplibre-geoman-free/dist/maplibre-geoman.css";
 import AreaReadout from "@/components/dataset/AreaReadout.vue";
 import PanelHeader from "@/components/dataset/PanelHeader.vue";
-import type { ColorbarOptions } from "@/utils/SkopeColorbar";
+import type { ColorbarOptions } from "@/utils/skopeColorbar";
 import { createApiEndpoints } from "@/utils/apiEndpoints";
 import { useStudyArea } from "@/composables/useStudyArea";
 import { useAppStore } from "@/stores/app";

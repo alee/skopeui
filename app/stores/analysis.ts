@@ -14,17 +14,7 @@ import { formatStats } from "@/utils/stats";
 import { stableJson } from "@/utils/extractionIdentity";
 import { yearOfTimestep } from "@/utils/timeAxis";
 
-export type AnalysisFormDraft = {
-  zonalStatistic: TimeseriesRequest["zonal_statistic"];
-  smoothingOption: string;
-  smoothingTimeStep: number;
-  transformOption: string;
-  zScoreMovingIntervalTimeSteps: number;
-  timeRange: {
-    lb: { year: number; month: number };
-    ub: { year: number; month: number };
-  };
-};
+import type { AnalysisFormDraft } from "@/types/analysis";
 
 const EMPTY_RESPONSE: TimeseriesResponse = {
   area: 0,

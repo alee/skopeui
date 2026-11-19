@@ -128,11 +128,12 @@
           </v-alert>
         </template>
         <Plotly
-          ref="plotlyRef"
           class="time-series"
           :data="timeSeriesData"
           :layout="layoutMetadata"
           :options="options"
+          :shapes="shapes"
+          @api-ready="setPlotImageApi"
           @click="updatePlotlyStep"
           @ready="emit('plot-ready', $event)"
         />
@@ -152,6 +153,7 @@ import {
   nextTick,
   defineAsyncComponent,
 } from "vue";
+import type { PlotImageApi, ExportTrace } from "@/types/plot";
 import type { Annotation, Layout, Config, Shape } from "plotly.js";
 import AreaReadout from "@/components/dataset/AreaReadout.vue";
 import PanelHeader from "@/components/dataset/PanelHeader.vue";
@@ -194,7 +196,10 @@ const localTemporalRangeMax = ref(new Date().getFullYear());
 const isTemporalRangeEditable = ref(false);
 const isTemporalRangeValid = ref(false);
 const temporalRangeForm = ref<any>(null);
-const plotlyRef = ref<any>(null);
+let plotImageApi: PlotImageApi | null = null;
+function setPlotImageApi(api: PlotImageApi | null) {
+  plotImageApi = api;
+}
 
 const PROGRESSIVE_MESSAGES = [
   { delay: 8_000, text: "Still working..." },
@@ -378,36 +383,13 @@ const layoutMetadata = computed<Partial<Layout>>(() => ({
   font: { size: 14 },
   // In trace order: the first series, then Smoothed.
   colorway: [PLOT_COLORS.main, PLOT_COLORS.plotAccent],
-  shapes: shapes.value,
   annotations: [yAxisTitleAnnotation.value],
 }));
 
 const options = computed<Partial<Config>>(() => ({
   displaylogo: false,
   modeBarButtonsToRemove: ["toImage"],
-  responsive: true,
 }));
-
-function getPlotlyApi() {
-  const plotlyInstance = plotlyRef.value as any;
-  if (!plotlyInstance) {
-    return null;
-  }
-
-  if (typeof plotlyInstance.toImages === "function") {
-    return plotlyInstance;
-  }
-
-  if (plotlyInstance.$?.exposed) {
-    return plotlyInstance.$.exposed;
-  }
-
-  if (plotlyInstance.$?.subTree?.component?.exposed) {
-    return plotlyInstance.$.subTree.component.exposed;
-  }
-
-  return null;
-}
 
 // Methods
 function enableTemporalRangeEdit() {
@@ -532,8 +514,8 @@ function applyStepDraftOnBlur() {
 
 watch(() => props.stepSelected, resetStepDraft, { immediate: true });
 
-async function getTimeSeriesPlotImage(expectedTraces?: unknown[]) {
-  const plotlyApi = getPlotlyApi();
+async function getTimeSeriesPlotImage(expectedTraces?: ExportTrace[]) {
+  const plotlyApi = plotImageApi;
   if (!plotlyApi) throw new Error("The plot is not ready for export.");
   return plotlyApi.toImages(expectedTraces);
 }

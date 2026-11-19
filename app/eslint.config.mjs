@@ -23,11 +23,4 @@ export default createConfigForNuxt(
       "@typescript-eslint/no-extraneous-class": "off",
     },
   },
-  {
-    // Legacy Vuetify config has unused imports that are kept for reference.
-    files: ["assets/style/vuetify.js"],
-    rules: {
-      "no-unused-vars": "off",
-    },
-  },
 );

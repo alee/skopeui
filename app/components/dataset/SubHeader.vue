@@ -41,7 +41,7 @@
 </template>
 <script setup lang="ts">
 import { ref, computed } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { useRouter } from "vue-router";
 import MetadataModal from "@/components/dataset/MetadataModal.vue";
 import { useDatasetStore } from "@/stores/dataset";
 

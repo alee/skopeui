@@ -70,7 +70,6 @@
 
 <script setup lang="ts">
 import { computed, watch, onMounted, onUnmounted, onBeforeUnmount } from "vue";
-import { useRoute } from "vue-router";
 import Map from "@/components/dataset/Map.client.vue";
 import RasterPlaybackControls from "@/components/dataset/RasterPlaybackControls.vue";
 import TimeSeriesPlot from "@/components/dataset/TimeSeriesPlot.vue";
