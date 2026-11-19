@@ -63,7 +63,7 @@ export default defineNuxtConfig({
       gtagId: process.env.NUXT_PUBLIC_GTAG_ID || "G-M0NVBT90BT",
       cartoApiKey: "",
       stadiaApiKey: "",
-      stadiaDomainAuth: false,
+      stadiaDomainAuth: true,
     },
   },
 

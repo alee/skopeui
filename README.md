@@ -114,20 +114,42 @@ Past and present contributions are recorded in the [GitHub contributors](../../g
 ## Basemaps
 
 All maps now use MapLibre. Workflow maps retain the Esri Topographic default,
-Esri Terrain, and Esri Gray Canvas. Stamen Toner Lite and CARTO Positron are
-available when their authentication is configured:
+Esri Terrain, and Esri Gray Canvas. Stamen Toner Lite uses Stadia Maps domain
+authentication by default. The Stadia configuration currently covers
+`*.openskope.org`, so those registered subdomains do not need a Stadia API key.
+Register additional UI domains with Stadia Maps before using domain
+authentication there. CARTO Positron is available when its API key is configured:
 
-| Runtime environment variable          | Purpose                                                                            |
-| ------------------------------------- | ---------------------------------------------------------------------------------- |
-| `NUXT_PUBLIC_CARTO_API_KEY`           | Enables Positron using CARTO's `key` parameter.                                    |
-| `NUXT_PUBLIC_STADIA_API_KEY`          | Enables Toner Lite using Stadia Maps' `api_key` parameter.                         |
-| `NUXT_PUBLIC_STADIA_DOMAIN_AUTH=true` | Enables Toner Lite without a key after registering the UI domain with Stadia Maps. |
+| Runtime environment variable     | Purpose                                                             |
+| -------------------------------- | ------------------------------------------------------------------- |
+| `NUXT_PUBLIC_CARTO_API_KEY`        | Enables Positron using CARTO's `key` parameter.                       |
+| `NUXT_PUBLIC_STADIA_API_KEY`       | Enables Toner Lite using Stadia Maps' `api_key` parameter.             |
+| `NUXT_PUBLIC_STADIA_DOMAIN_AUTH`   | Enables Toner Lite without a key; defaults to `true`.                 |
+
+Set `NUXT_PUBLIC_STADIA_DOMAIN_AUTH=false` to disable domain authentication.
 
 Set these in the deployment environment or the repository's ignored `.env`
 file, then use the normal Make deployment target. Compose forwards them to the
 Nuxt server at runtime; no credential is baked into the image. These are
 browser-visible provider keys; restrict them to the UI domains in the provider
-dashboards. Providers without configuration are omitted from the menu.
+dashboards. Positron is omitted without a CARTO key. Toner Lite is omitted when
+domain authentication is disabled and no Stadia API key is supplied.
+
+For a persistent CARTO override, add this to `.env` at the repository root:
+
+```dotenv
+NUXT_PUBLIC_CARTO_API_KEY=your-carto-key
+```
+
+For a single deployment, a shell environment variable overrides `.env`:
+
+```bash
+NUXT_PUBLIC_CARTO_API_KEY='your-carto-key' make deploy-staging
+```
+
+Use the production target on the production host. Settings take effect when
+the container is recreated; reload open browser tabs afterward. A plain
+container restart does not pick up changed Compose environment values.
 
 Toner Lite uses the current [Stadia Maps service](https://docs.stadiamaps.com/map-styles/stamen-toner/)
 and [authentication options](https://docs.stadiamaps.com/authentication/).
