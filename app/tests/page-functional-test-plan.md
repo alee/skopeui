@@ -34,6 +34,8 @@ Purpose: verify integrated browser behavior with real backend data.
 
 - One end-to-end path: Home -> Dataset -> Visualize -> Analyze -> Download.
 - Record pass/fail in release checklist.
+- Use the [staging functional test plan](../../docs/staging-functional-test-plan.md)
+  for the integrated release checklist, extraction recovery checks, and run record.
 
 ## Route Matrix (Must Pass)
 
