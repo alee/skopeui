@@ -54,6 +54,15 @@ make restart ENVIRONMENT=staging
 make down ENVIRONMENT=staging
 ```
 
+UI deployments currently build on the application host and do not depend on
+GitHub Actions or its artifacts. During a GitHub outage, use the existing local
+checkout and run `make deploy-staging` or `make deploy-production` as usual.
+Add `PULL=0` to build with cached base images if their registries are unavailable.
+Missing Docker layers, citation tooling, and npm/OS packages can still require
+network access; retain known-good images and the generated citation assets on
+the host for broader outages. A local rebuild does not establish that the
+resulting image passed CI; run `make test` before deployment when possible.
+
 The API URL is read from Nuxt's `runtimeConfig.public.apiBase` at container
 startup. Compose supplies `NUXT_PUBLIC_API_BASE` using the environment defaults
 above. Both `NUXT_PUBLIC_API_BASE` and the existing Make override
