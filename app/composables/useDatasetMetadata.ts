@@ -60,12 +60,6 @@ export function useDatasetMetadata() {
     const datasetMetadata = metadataStore.find(metadataId);
     if (datasetMetadata == null) {
       datasetStore.setMetadata(null);
-      if (typeof window !== "undefined") {
-        alert(
-          "Please try again later, we were unable to locate dataset metadata for " +
-            metadataId,
-        );
-      }
       return false;
     }
 

@@ -40,10 +40,12 @@ Mark each row in the run record as pass, fail, or not run, with evidence.
 | B3 | Move between Visualize and Analyze while extraction is pending. | The pages share the existing job. Navigation neither abandons shared work nor launches a duplicate extraction. |
 | B4 | Change the study area or dataset during a pending request. Repeat with a delayed response from the original source. | Obsolete browser requests/retry waits stop. Late results never overwrite the current selection. The original server job may still finish; browser abort is not server cancellation. |
 | B5 | Let an extraction submission reach the API, then suppress its response. Restore connectivity and retry without reloading. | Retries retain the original idempotency key and captured payload, recover the same job ID, and cause only one extraction execution. |
-| B6 | After receiving a job ID, interrupt polling, reconnect, and retry. | The UI resumes polling the same job and retrieves its result without launching a replacement extraction. |
+| B6 | After receiving a job ID, interrupt polling, reconnect, and click Retry time series on Visualize. | The UI resumes polling the same job and retrieves its result without launching a replacement extraction. |
 | B7 | Interrupt analysis, then reconnect and retry. | The completed extraction remains available and is reused. No new extraction starts. |
 | B8 | Keep submission requests failing through the submission budget. Repeat separately for polling. | Waiting ends with a recoverable connection/phase-deadline error. Retrying reconnects using the retained attempt or job. A transport failure does not recommend a smaller area. |
 | B9 | Delay an individual HTTP response or body beyond its operation budget. Separately inject a gateway 504 without a backend timeout code. | Waiting is bounded. These errors are treated as connection trouble, not a backend processing timeout; recovery preserves the attempt/job. |
+| B10 | Complete a transformed analysis, then submit different options and fail that request. Separately delay a transformed request, click Clear, and let the older request finish last. | Labels continue to describe the displayed result. Failed or obsolete requests never relabel the current traces. |
+| B11 | Fail metadata loading on each dataset workflow page, then restore the API and click Retry. Also open an unknown dataset or variable. | Failed loads stop spinning and show Retry and Back to datasets actions. Retry restores the workflow without a reload; unavailable selections show a distinct message. |
 
 For B5, going offline before clicking does **not** prove recovery after
 acceptance. Confirm from API logs that acceptance occurred before losing the
@@ -91,7 +93,7 @@ shared Redis records just to force expiration. Record any omitted test and why.
 
 ## Release gate
 
-- [ ] B1–B9 and A1–A7 pass, or an explicit release decision records an exception,
+- [ ] B1–B11 and A1–A7 pass, or an explicit release decision records an exception,
   its evidence, and its impact.
 - [ ] Applicable F checks pass; omitted fixture checks have a recorded reason.
 - [ ] Submission and polling recovery preserve job identity without duplicate

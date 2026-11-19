@@ -1,6 +1,10 @@
 <template>
   <v-container fluid class="fill-height align-start">
-    <LoadingSpinner v-if="isLoadingMetadata" />
+    <DatasetLoadState
+      v-if="metadataState !== 'ready'"
+      :state="metadataState"
+      @retry="initializePage"
+    />
     <template v-else>
       <SubHeader :select-variable="true">
         <v-btn
@@ -181,8 +185,8 @@ import { useDisplay } from "vuetify";
 import type { VForm } from "vuetify/components";
 import TimeSeriesPlot from "@/components/dataset/TimeSeriesPlot.vue";
 import SubHeader from "@/components/dataset/SubHeader.vue";
-import LoadingSpinner from "@/components/LoadingSpinner.vue";
-import { toISODate } from "@/utils/stats";
+import DatasetLoadState from "@/components/dataset/DatasetLoadState.vue";
+import { extractYear, toISODate } from "@/utils/stats";
 import {
   defaultAnalysisForm,
   analysisOptionsFromForm,
@@ -197,7 +201,7 @@ import { buildReadme } from "@/utils/buildReadme";
 import { useAnalysisStore } from "@/stores/analysis";
 import { useDatasetStore } from "@/stores/dataset";
 import { useTimeSeriesRequest } from "@/composables/useTimeSeriesRequest";
-import { useDatasetMetadata } from "@/composables/useDatasetMetadata";
+import { useDatasetPage } from "@/composables/useDatasetPage";
 import { useStudyArea } from "@/composables/useStudyArea";
 import { captureAnalysisExport } from "@/utils/analysisExport";
 import { useMessagesStore } from "@/stores/messages";
@@ -228,7 +232,10 @@ const editAreaLocation = computed(() =>
 const { mdAndDown } = useDisplay();
 const analysisStore = useAnalysisStore();
 const datasetStore = useDatasetStore();
-const metadataActions = useDatasetMetadata();
+const { state: metadataState, load: loadMetadata } = useDatasetPage(
+  String(route.params.id),
+  route.params.variable as string,
+);
 const studyArea = useStudyArea();
 const { run: requestTimeSeries } = useTimeSeriesRequest("analyze");
 const { $download } = useNuxtApp();
@@ -257,7 +264,27 @@ const {
   zScoreMovingIntervalTimeSteps,
 } = toRefs(form);
 const analysisFormValid = ref(true);
-const yAxisLabel = ref<string | null>(null);
+// Labels follow the displayed response, including when a later request fails.
+const yAxisLabel = computed(() => {
+  const response = analysisStore.response;
+  const completed = analysisStore.completedRequest;
+  if (!response?.series.length || !completed) return "";
+  const transform = transformOptionFor(
+    response.transform,
+    completed.time_range,
+  );
+  if (transform === "none") return "";
+  if (transform === "zscoreSelected") {
+    const start = extractYear(completed.time_range.gte);
+    const end = extractYear(completed.time_range.lte);
+    const fullRecord =
+      start === datasetStore.minYear && end === datasetStore.maxYear;
+    return `Z-Score wrt ${fullRecord ? "full record" : "selected interval"} (${start}–${end})`;
+  }
+  return (
+    TRANSFORM_OPTIONS.find((option) => option.id === transform)?.label ?? ""
+  );
+});
 
 const zonalStatisticOptions = [
   { label: "Mean of its pixels", id: "mean" },
@@ -273,8 +300,6 @@ const statisticsHeaders = [
 const transformOptions = TRANSFORM_OPTIONS;
 const smoothingOptions = SMOOTHING_OPTIONS;
 
-const metadata = computed(() => datasetStore.metadata);
-const isLoadingMetadata = computed(() => metadata.value == null);
 const temporalRange = computed(() => datasetStore.temporalRange);
 // The "selected interval" z-score uses the range on screen as its reference,
 // so its label names that range.
@@ -508,29 +533,19 @@ watch(
     if (!data) return;
     initializeFormData(data);
     await retrieveAnalysis(data);
-    // Label the requested result independently of unsubmitted form edits.
-    const appliedTransform = data.transform
-      ? transformOptionFor(data.transform, data.time_range)
-      : "none";
-    yAxisLabel.value =
-      appliedTransform === "none"
-        ? ""
-        : (transformItems.value.find((option) => option.id === appliedTransform)
-            ?.label ?? null);
   },
 );
 
+async function initializePage() {
+  if (!(await loadMetadata())) return false;
+  timeRange.value.lb.year = datasetStore.minYear;
+  timeRange.value.ub.year = datasetStore.maxYear;
+  return true;
+}
+
 await useAsyncData(
   `analyze-${route.params.id}-${route.params.variable}`,
-  async () => {
-    await metadataActions.initializeDataset(
-      route.params.id as string,
-      route.params.variable as string,
-    );
-    timeRange.value.lb.year = datasetStore.minYear;
-    timeRange.value.ub.year = datasetStore.maxYear;
-    return true;
-  },
+  initializePage,
   { server: false },
 );
 

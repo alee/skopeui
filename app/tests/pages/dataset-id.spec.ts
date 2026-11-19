@@ -60,6 +60,7 @@ vi.mock("@/composables/useStudyArea", () => ({
 }));
 
 const layoutStubs = {
+  "v-alert": { template: '<div role="alert"><slot /></div>' },
   "v-container": { template: "<div><slot /></div>" },
   "v-row": { template: "<div><slot /></div>" },
   "v-col": { template: "<div><slot /></div>" },
@@ -151,5 +152,55 @@ describe("route /dataset/:id", () => {
     await nextTick();
 
     expect(visualizeButton.attributes("disabled")).toBeUndefined();
+  });
+
+  it("[behavior] replaces a failed metadata spinner with Retry and Back actions", async () => {
+    const metadata = datasetStore.metadata;
+    datasetStore.metadata = null;
+    metadataActions.initializeDataset.mockRejectedValueOnce(
+      new Error("offline"),
+    );
+    const wrapper = await mountWithSuspense(DatasetIdPage, {
+      global: { stubs: layoutStubs },
+    });
+    expect(wrapper.find('[role="alert"]').text()).toContain(
+      "Unable to load this dataset",
+    );
+    expect(wrapper.find('[data-test="loading"]').exists()).toBe(false);
+    const back = wrapper
+      .findAll("button")
+      .find((button) => button.text() === "Back to datasets")!;
+    expect(JSON.parse(back.attributes("data-to")!)).toEqual({ name: "index" });
+    let finish!: (value: boolean) => void;
+    metadataActions.initializeDataset.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text() === "Retry")!
+      .trigger("click");
+    expect(wrapper.find('[data-test="loading"]').exists()).toBe(true);
+    datasetStore.metadata = metadata;
+    finish(true);
+    await flushPromises();
+    expect(wrapper.find('[data-test="map"]').exists()).toBe(true);
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false);
+    wrapper.unmount();
+  });
+
+  it("[behavior] presents an unavailable dataset without an endless spinner", async () => {
+    datasetStore.metadata = null;
+    metadataActions.initializeDataset.mockResolvedValueOnce(false);
+    const wrapper = await mountWithSuspense(DatasetIdPage, {
+      global: { stubs: layoutStubs },
+    });
+    expect(wrapper.find('[role="alert"]').text()).toContain(
+      "dataset or variable is unavailable",
+    );
+    expect(wrapper.find('[data-test="loading"]').exists()).toBe(false);
+    wrapper.unmount();
   });
 });

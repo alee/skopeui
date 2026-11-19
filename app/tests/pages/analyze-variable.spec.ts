@@ -32,6 +32,7 @@ vi.mock("vuetify", () => ({
 vi.mock("@/components/dataset/TimeSeriesPlot.vue", () => ({
   default: {
     name: "TimeSeriesPlotStub",
+    props: ["yAxisLabel", "traces"],
     template: '<div data-test="timeseries">timeseries</div>',
     emits: ["plot-ready"],
     mounted(this: { $emit: (event: "plot-ready", ready: boolean) => void }) {
@@ -81,6 +82,7 @@ vi.mock("@/composables/useStudyArea", () => ({
 }));
 
 const layoutStubs = {
+  "v-alert": { template: '<div role="alert"><slot /></div>' },
   "v-container": { template: "<div><slot /></div>" },
   "v-row": { template: "<div><slot /></div>" },
   "v-col": { template: "<div><slot /></div>" },
@@ -387,6 +389,106 @@ describe("route /dataset/:id/analyze/:variable", () => {
 
     expect(messagesStore.warning).toHaveBeenCalledWith(reason);
     expect(messagesStore.error).not.toHaveBeenCalled();
+  });
+
+  it("[behavior] retains the displayed transform label after a later request fails", async () => {
+    const wrapper = await mountWithSuspense(AnalyzePage, {
+      global: { stubs: layoutStubs },
+    });
+    const select = wrapper.find(
+      '[aria-label="Select a transformation option"]',
+    );
+    const update = wrapper
+      .findAll("button")
+      .find((button) => button.text().includes("Update"))!;
+    extractionStore.resolveTimeSeries.mockResolvedValueOnce({
+      ...timeSeriesResponseFixture,
+      transform: { type: "ZScoreMovingInterval", width: 2 },
+    });
+    await select.setValue("zscoreMoving");
+    await wrapper.find('[aria-label="Transform window"]').setValue("2");
+    await update.trigger("click");
+    await flushPromises();
+    const plot = wrapper.findComponent({ name: "TimeSeriesPlotStub" });
+    expect(plot.props("yAxisLabel")).toBe("Z-Score wrt moving interval");
+    const traces = plot.props("traces");
+    extractionStore.resolveTimeSeries.mockRejectedValueOnce(
+      new Error("offline"),
+    );
+    await select.setValue("none");
+    await update.trigger("click");
+    await flushPromises();
+    expect(plot.props("traces")).toEqual(traces);
+    expect(plot.props("yAxisLabel")).toBe("Z-Score wrt moving interval");
+    wrapper.unmount();
+  });
+
+  it("[behavior] ignores an obsolete request's label when Clear finishes first", async () => {
+    let sequence = 0;
+    extractionStore.beginRequest = () => {
+      const token = ++sequence;
+      return () => token === sequence;
+    };
+    const wrapper = await mountWithSuspense(AnalyzePage, {
+      global: { stubs: layoutStubs },
+    });
+    let finish!: (value: unknown) => void;
+    extractionStore.resolveTimeSeries.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    await wrapper
+      .find('[aria-label="Select a transformation option"]')
+      .setValue("zscoreMoving");
+    await wrapper.find('[aria-label="Transform window"]').setValue("2");
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text().includes("Update"))!
+      .trigger("click");
+    await flushPromises();
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text() === "Clear")!
+      .trigger("click");
+    await flushPromises();
+    const plot = wrapper.findComponent({ name: "TimeSeriesPlotStub" });
+    expect(plot.props("yAxisLabel")).toBe("");
+    finish({
+      ...timeSeriesResponseFixture,
+      transform: { type: "ZScoreMovingInterval", width: 2 },
+    });
+    await flushPromises();
+    expect(plot.props("yAxisLabel")).toBe("");
+    expect(analysisStore.response.transform).toEqual({ type: "NoTransform" });
+    wrapper.unmount();
+  });
+
+  it("[behavior] can recover from a failed metadata load", async () => {
+    const metadata = datasetStore.metadata;
+    datasetStore.metadata = null;
+    metadataActions.initializeDataset.mockRejectedValueOnce(
+      new Error("offline"),
+    );
+    const wrapper = await mountWithSuspense(AnalyzePage, {
+      global: { stubs: layoutStubs },
+    });
+    expect(wrapper.find('[role="alert"]').text()).toContain(
+      "Unable to load this dataset",
+    );
+    metadataActions.initializeDataset.mockImplementationOnce(async () => {
+      datasetStore.metadata = metadata;
+      return true;
+    });
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text() === "Retry")!
+      .trigger("click");
+    await flushPromises();
+    expect(wrapper.find('[data-test="analysis-form"]').exists()).toBe(true);
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false);
+    wrapper.unmount();
   });
 
   it("[behavior] starts the analysis once metadata arrives after mounting", async () => {

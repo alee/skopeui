@@ -14,6 +14,7 @@ import {
 } from "@/tests/fixtures/nuxt-test-helpers";
 
 import VisualizePage from "@/pages/dataset/[id]/visualize/[variable].vue";
+import { RequestFailure } from "@/utils/requestJson";
 
 const routeParams = { id: "paleocar", variable: "tasmax" };
 let datasetStore: any;
@@ -93,6 +94,7 @@ vi.mock("@/composables/useStudyArea", () => ({
 }));
 
 const layoutStubs = {
+  "v-alert": { template: '<div role="alert"><slot /></div>' },
   "v-container": { template: "<div><slot /></div>" },
   "v-row": { template: "<div><slot /></div>" },
   "v-col": { template: "<div><slot /></div>" },
@@ -247,6 +249,84 @@ describe("route /dataset/:id/visualize/:variable", () => {
     expect(datasetStore.setTimeSeriesLoaded).toHaveBeenCalled();
     expect(extractionStore.resolveTimeSeries).toHaveBeenCalled();
     expect(appStore.setVisited).toHaveBeenCalled();
+  });
+
+  it("[behavior] retries the unchanged time-series request without reloading", async () => {
+    datasetStore.setTimeSeriesLoading.mockImplementation(() => {
+      datasetStore.timeSeriesRequestStatus = {
+        status: "loading",
+        messages: [],
+      };
+    });
+    datasetStore.setTimeSeriesServerError.mockImplementation(() => {
+      datasetStore.timeSeriesRequestStatus = {
+        status: "servererror",
+        messages: [],
+      };
+    });
+    datasetStore.setTimeSeriesLoaded.mockImplementation(() => {
+      datasetStore.timeSeriesRequestStatus = {
+        status: "success",
+        messages: [],
+      };
+    });
+    extractionStore.resolveTimeSeries.mockRejectedValueOnce(
+      new RequestFailure("POLLING_TIMEOUT", "Retry to reconnect."),
+    );
+    const wrapper = await mountWithSuspense(VisualizePage, {
+      global: { stubs: layoutStubs },
+    });
+    await flushPromises();
+    const request = extractionStore.resolveTimeSeries.mock.calls[0][0];
+    const retry = wrapper
+      .findAll("button")
+      .find((button) => button.text() === "Retry time series")!;
+    expect(retry).toBeDefined();
+    let finish!: (value: unknown) => void;
+    extractionStore.resolveTimeSeries.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    await retry.trigger("click");
+    expect(extractionStore.resolveTimeSeries).toHaveBeenCalledTimes(2);
+    expect(extractionStore.resolveTimeSeries).toHaveBeenLastCalledWith(request);
+    expect(
+      wrapper
+        .findAll("button")
+        .some((button) => button.text() === "Retry time series"),
+    ).toBe(false);
+    finish(timeSeriesResponseFixture);
+    await flushPromises();
+    expect(datasetStore.timeSeriesRequestStatus.status).toBe("success");
+    wrapper.unmount();
+  });
+
+  it("[behavior] can recover from a failed metadata load", async () => {
+    const metadata = datasetStore.metadata;
+    datasetStore.metadata = null;
+    metadataActions.initializeDataset.mockRejectedValueOnce(
+      new Error("offline"),
+    );
+    const wrapper = await mountWithSuspense(VisualizePage, {
+      global: { stubs: layoutStubs },
+    });
+    expect(wrapper.find('[role="alert"]').text()).toContain(
+      "Unable to load this dataset",
+    );
+    metadataActions.initializeDataset.mockImplementationOnce(async () => {
+      datasetStore.metadata = metadata;
+      return true;
+    });
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text() === "Retry")!
+      .trigger("click");
+    await flushPromises();
+    expect(wrapper.find('[data-test="map"]').exists()).toBe(true);
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false);
+    wrapper.unmount();
   });
 
   it("[behavior] re-requests time-series when temporal/request constraints change", async () => {

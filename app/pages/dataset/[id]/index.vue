@@ -1,6 +1,10 @@
 <template>
   <v-container fluid class="fill-height">
-    <LoadingSpinner v-if="isLoadingMetadata" />
+    <DatasetLoadState
+      v-if="metadataState !== 'ready'"
+      :state="metadataState"
+      @retry="loadMetadata"
+    />
     <template v-else>
       <SubHeader>
         <v-btn
@@ -53,10 +57,10 @@
 
 <script setup lang="ts">
 import { ref, computed } from "vue";
-import LoadingSpinner from "@/components/LoadingSpinner.vue";
+import DatasetLoadState from "@/components/dataset/DatasetLoadState.vue";
 import SubHeader from "@/components/dataset/SubHeader.vue";
 import Map from "@/components/dataset/Map.client.vue";
-import { useDatasetMetadata } from "@/composables/useDatasetMetadata";
+import { useDatasetPage } from "@/composables/useDatasetPage";
 import { useStudyArea } from "@/composables/useStudyArea";
 import { useAppStore } from "@/stores/app";
 import { useDatasetStore } from "@/stores/dataset";
@@ -68,14 +72,15 @@ definePageMeta({
 });
 
 const route = useRoute();
-const metadataActions = useDatasetMetadata();
+const { state: metadataState, load: loadMetadata } = useDatasetPage(
+  String(route.params.id),
+);
 const studyArea = useStudyArea();
 const appStore = useAppStore();
 const datasetStore = useDatasetStore();
 
 const shouldConfirmGeometry = ref(true);
 
-const isLoadingMetadata = computed(() => datasetStore.metadata == null);
 const metadata = computed(() => datasetStore.metadata);
 const hasValidStudyArea = computed(() => datasetStore.hasGeoJson);
 const isFirstVisit = computed(() => appStore.isFirstVisit);
@@ -103,14 +108,9 @@ const visualizeLocation = computed(() => {
   };
 });
 
-await useAsyncData(
-  `dataset-${route.params.id}`,
-  async () => {
-    await metadataActions.initializeDataset(route.params.id as string);
-    return true;
-  },
-  { server: false },
-);
+await useAsyncData(`dataset-${route.params.id}`, loadMetadata, {
+  server: false,
+});
 
 useHead(() => ({
   title: metadata.value?.title || "SKOPE",
