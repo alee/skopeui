@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "TimeseriesContracts",
-  "x-skope-source": "skope-api@codex/recoverable-extraction-jobs (working tree)",
+  "x-skope-generated-from": "openskope/skope-api OpenAPI components",
   "type": "object",
   "additionalProperties": false,
   "properties": {

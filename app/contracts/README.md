@@ -1,15 +1,18 @@
 # Frontend API contracts
 
 `metadata-1.0.0.schema.json` is the existing versioned metadata contract.
-`timeseries.schema.json` contains the request, result, and status definitions
-exported from `skope-api` OpenAPI at the revision recorded in `x-skope-source`.
-It includes referenced geometry, transform, and smoothing definitions.
+`timeseries.schema.json` contains request, result, acceptance, status, and error
+models exported from the backend OpenAPI document, including referenced geometry,
+transform, and smoothing definitions. `x-skope-generated-from` identifies that
+input as `openskope/skope-api OpenAPI components`. It is descriptive provenance;
+it does not identify a contract version or perform runtime compatibility checks.
+The generator sets it automatically, without branch names or commit references.
 
 To update time-series contracts, obtain `/openapi.json` from the matching backend
 checkout or deployment, then run inside the frontend Docker service:
 
 ```sh
-npm run types:timeseries -- /path/to/openapi.json skope-api@<commit>
+npm run types:timeseries -- /path/to/openapi.json
 ```
 
 To regenerate TypeScript from the committed schema snapshot:
@@ -20,15 +23,11 @@ npm run types:timeseries
 
 The generator converts JSON Schema tuples and preserves OpenAPI discriminator
 tag requirements in TypeScript unions. `make test` checks that generated files
-match their committed snapshots and runs the focused API TypeScript check.
+match their committed snapshots and runs full Nuxt type checking.
 These checks do not compare against a running backend.
 
-The backend currently omits successful response declarations for extract and
-analyze. Analyze uses the existing `TimeseriesResponse` model, which OpenAPI
-exposes through job status. The small extract acceptance reply is declared in
-`types/api.ts` to mirror the existing route payload until its backend response
-model is available. Response types describe the wire contract; request validation
-and the missing-success-result check are the runtime checks in the API client.
+Response types describe the wire contract. Request validation and response checks
+in the API client remain responsible for runtime validation.
 
 ## Saved analyses
 
