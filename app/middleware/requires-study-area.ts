@@ -1,3 +1,4 @@
+import { hasStudyArea } from "@/utils/studyArea";
 import { usePersistenceStorage } from "@/composables/usePersistenceStorage";
 import { studyAreaKey, useDatasetStore } from "@/stores/dataset";
 import { useMessagesStore } from "@/stores/messages";
@@ -11,7 +12,8 @@ export default defineNuxtRouteMiddleware((to) => {
   if (datasetStore.hasGeoJson && datasetStore.metadata?.id === datasetId) {
     return;
   }
-  if (usePersistenceStorage().get(studyAreaKey(datasetId)) != null) return;
+  if (hasStudyArea(usePersistenceStorage().get(studyAreaKey(datasetId))))
+    return;
 
   useMessagesStore().info(
     "Select a study area first: draw one on the map, or upload a GeoJSON file.",

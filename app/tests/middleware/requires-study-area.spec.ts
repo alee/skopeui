@@ -43,6 +43,15 @@ describe("requires-study-area middleware", () => {
     expect(message.message).toMatch(/Select a study area first/);
   });
 
+  it.each([
+    {},
+    { type: "FeatureCollection", features: [] },
+    { type: "Feature", geometry: null },
+  ])("does not admit an empty persisted selection: %j", (invalid) => {
+    localStorage.setItem("geojson:paleocar_v3", JSON.stringify(invalid));
+    expect((requiresStudyArea as any)(visualize)).toBeDefined();
+  });
+
   it("lets the page open with an area saved in the browser", () => {
     localStorage.setItem("geojson:paleocar_v3", JSON.stringify(area));
 

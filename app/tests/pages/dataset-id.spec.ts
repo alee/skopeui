@@ -65,7 +65,11 @@ const layoutStubs = {
   "v-row": { template: "<div><slot /></div>" },
   "v-col": { template: "<div><slot /></div>" },
   "client-only": { template: "<div><slot /></div>" },
-  "v-dialog": { template: "<div><slot /></div>" },
+  "v-dialog": {
+    props: ["modelValue"],
+    template:
+      '<div v-if="modelValue" data-test="area-confirmation"><slot /></div>',
+  },
   "v-card": { template: "<div><slot /></div>" },
   "v-card-text": { template: "<div><slot /></div>" },
   "v-card-actions": { template: "<div><slot /></div>" },
@@ -137,6 +141,33 @@ describe("route /dataset/:id", () => {
     } finally {
       routeQuery = {};
     }
+  });
+
+  it("waits until the map has restored the saved area before asking to clear it", async () => {
+    datasetStore.hasGeoJson = true;
+    appStore.isFirstVisit = true;
+    const wrapper = await mountWithSuspense(DatasetIdPage, {
+      global: { stubs: layoutStubs },
+    });
+    expect(wrapper.find('[data-test="area-confirmation"]').exists()).toBe(
+      false,
+    );
+    wrapper.findComponent({ name: "MapStub" }).vm.$emit("map-ready", true);
+    await nextTick();
+    expect(wrapper.find('[data-test="area-confirmation"]').exists()).toBe(true);
+    wrapper.unmount();
+  });
+
+  it("does not ask to clear a nonexistent area after the map loads", async () => {
+    const wrapper = await mountWithSuspense(DatasetIdPage, {
+      global: { stubs: layoutStubs },
+    });
+    wrapper.findComponent({ name: "MapStub" }).vm.$emit("map-ready", true);
+    await nextTick();
+    expect(wrapper.find('[data-test="area-confirmation"]').exists()).toBe(
+      false,
+    );
+    wrapper.unmount();
   });
 
   it("[behavior] enables Visualize button only when study area is valid", async () => {

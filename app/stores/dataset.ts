@@ -1,3 +1,4 @@
+import { hasStudyArea } from "@/utils/studyArea";
 import type { DraftTimeseriesRequest } from "@/types/api";
 import { defaultAnalysisOptions } from "@/types/api";
 import { defineStore } from "pinia";
@@ -84,7 +85,7 @@ export const useDatasetStore = defineStore("dataset", {
       state.metadata?.variables.find(
         (variable) => variable.id === state.variableId,
       ) ?? { id: null },
-    hasGeoJson: (state) => state.geoJson != null,
+    hasGeoJson: (state) => hasStudyArea(state.geoJson),
     temporalRangeMin: (state) => state.temporalRange[0],
     temporalRangeMax: (state) => state.temporalRange[1],
     minYear: (state) =>
@@ -190,8 +191,9 @@ export const useDatasetStore = defineStore("dataset", {
     setGeoJson(geoJson: unknown) {
       if (stableJson(this.geoJson) === stableJson(geoJson)) return;
       const changedGeometry =
-        stableJson(extractionGeometry(this.geoJson)) !==
-        stableJson(extractionGeometry(geoJson));
+        stableJson(
+          this.hasGeoJson ? extractionGeometry(this.geoJson) : null,
+        ) !== stableJson(extractionGeometry(geoJson));
       this.geoJson = geoJson;
       if (changedGeometry) this.invalidateResults();
     },

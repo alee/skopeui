@@ -98,6 +98,23 @@ describe("study-area persistence", () => {
     expect(useDatasetStore().geoJson).toEqual(area);
   });
 
+  it.each([
+    {},
+    { type: "FeatureCollection", features: [] },
+    { type: "Feature", geometry: null },
+  ])(
+    "ignores stale empty persisted areas without deleting the saved value: %j",
+    (invalid) => {
+      localStorage.setItem("geojson:paleocar_v3", JSON.stringify(invalid));
+      useStudyArea().restore();
+      expect(useDatasetStore().hasGeoJson).toBe(false);
+      expect(useDatasetStore().geoJson).toBeNull();
+      expect(JSON.parse(localStorage.getItem("geojson:paleocar_v3")!)).toEqual(
+        invalid,
+      );
+    },
+  );
+
   it("keeps a transient active area instead of replacing it with the persisted one", () => {
     localStorage.setItem("geojson:paleocar_v3", JSON.stringify(area));
     const transient = { type: "Point", coordinates: [1, 2] };

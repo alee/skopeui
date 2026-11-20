@@ -1,3 +1,4 @@
+import { hasStudyArea } from "@/utils/studyArea";
 import { useMessagesStore } from "@/stores/messages";
 import { useDatasetStore } from "@/stores/dataset";
 import { usePersistenceStorage } from "@/composables/usePersistenceStorage";
@@ -21,7 +22,7 @@ export function useStudyArea() {
     const geoJson = Object.hasOwn(datasetStore.unpersistedStudyAreas, key)
       ? datasetStore.unpersistedStudyAreas[key]
       : persistenceStorage.get(key) || null;
-    datasetStore.setGeoJson(geoJson);
+    datasetStore.setGeoJson(hasStudyArea(geoJson) ? geoJson : null);
   }
 
   function clear() {

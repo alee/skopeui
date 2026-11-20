@@ -79,7 +79,7 @@ const studyArea = useStudyArea();
 const appStore = useAppStore();
 const datasetStore = useDatasetStore();
 
-const shouldConfirmGeometry = ref(true);
+const shouldConfirmGeometry = ref(false);
 
 const metadata = computed(() => datasetStore.metadata);
 const hasValidStudyArea = computed(() => datasetStore.hasGeoJson);
