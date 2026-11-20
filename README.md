@@ -36,6 +36,28 @@ Include your `SKOPE_API_HOST_URL` override again if you use a custom API endpoin
 dependencies change. Staging and production use dependencies baked into their
 images and do not renew development volumes.
 
+## External study-area handoff
+
+CyberSW and other browser clients can POST a `studyArea` field to
+`/dataset/<dataset_id>` to open the selection map with that point or polygon
+selected. The selection replaces the dataset's previously saved study area and
+is persisted through the normal study-area workflow. This returns the HTML page;
+it does not submit a time-series extraction.
+
+Use a browser form with method `POST`, or test the response with:
+
+```bash
+curl --data-urlencode 'studyArea={"type":"Feature","properties":{},"geometry":{"type":"Point","coordinates":[-107.971802,36.048799]}}' \
+  https://staging.openskope.org/dataset/paleocar_v3
+```
+
+The legacy CyberSW request using `--data 'studyArea={...}'` with
+`Content-Type: application/json` remains supported. JSON objects with a
+`studyArea` field (a GeoJSON object or JSON string) are also accepted. A single
+Feature, geometry, or one-feature FeatureCollection containing a Point or Polygon
+is supported; missing, malformed, empty, or multiple study features return HTTP
+400. The POST response is marked `Cache-Control: no-store`.
+
 ## Deployment
 
 Science-team members and end users follow the

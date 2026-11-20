@@ -1,5 +1,5 @@
 import { flushPromises } from "@vue/test-utils";
-import { nextTick } from "vue";
+import { nextTick, ref } from "vue";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -20,6 +20,7 @@ let datasetStore: any;
 let appStore: any;
 let metadataActions: any;
 let studyArea: any;
+let postedStudyArea = ref<unknown>(null);
 
 vi.mock("@/components/LoadingSpinner.vue", () => ({
   default: {
@@ -88,17 +89,68 @@ describe("route /dataset/:id", () => {
       query: routeQuery,
     }));
     installNuxtTestGlobals();
+    postedStudyArea = ref(null);
+    vi.stubGlobal("useState", () => postedStudyArea);
 
     routeParams = { id: "paleocar" };
     datasetStore = createDatasetStore({ hasGeoJson: false });
     appStore = createAppStore();
     metadataActions = { initializeDataset: vi.fn(async () => true) };
-    studyArea = { clear: vi.fn() };
+    studyArea = { clear: vi.fn(), save: vi.fn() };
   });
 
   afterEach(() => {
     vi.clearAllMocks();
     resetNuxtTestGlobals();
+  });
+
+  it("imports a posted feature after metadata loads without prompting to clear it", async () => {
+    const feature = {
+      type: "Feature",
+      properties: {},
+      geometry: {
+        type: "Point",
+        coordinates: [-107.971802, 36.048799],
+      },
+    };
+    postedStudyArea.value = feature;
+    studyArea.save.mockImplementation(() => {
+      datasetStore.hasGeoJson = true;
+    });
+    const wrapper = await mountWithSuspense(DatasetIdPage, {
+      global: { stubs: layoutStubs },
+    });
+    expect(studyArea.save).toHaveBeenCalledWith(feature);
+    expect(postedStudyArea.value).toBeNull();
+    wrapper.findComponent({ name: "MapStub" }).vm.$emit("map-ready", true);
+    await nextTick();
+    expect(wrapper.find('[data-test="area-confirmation"]').exists()).toBe(
+      false,
+    );
+    expect(
+      wrapper.find('[data-test="btn"]').attributes("disabled"),
+    ).toBeUndefined();
+    wrapper.unmount();
+  });
+
+  it("keeps the posted feature through a metadata failure and imports it on retry", async () => {
+    postedStudyArea.value = { type: "Point", coordinates: [-108, 36] };
+    metadataActions.initializeDataset.mockRejectedValueOnce(
+      new Error("offline"),
+    );
+    const wrapper = await mountWithSuspense(DatasetIdPage, {
+      global: { stubs: layoutStubs },
+    });
+    expect(studyArea.save).not.toHaveBeenCalled();
+    expect(postedStudyArea.value).not.toBeNull();
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text() === "Retry")!
+      .trigger("click");
+    await flushPromises();
+    expect(studyArea.save).toHaveBeenCalledTimes(1);
+    expect(postedStudyArea.value).toBeNull();
+    wrapper.unmount();
   });
 
   it.each([103, 1000])(

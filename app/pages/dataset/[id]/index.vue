@@ -56,7 +56,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, watch, onMounted } from "vue";
 import DatasetLoadState from "@/components/dataset/DatasetLoadState.vue";
 import SubHeader from "@/components/dataset/SubHeader.vue";
 import Map from "@/components/dataset/Map.client.vue";
@@ -72,6 +72,11 @@ definePageMeta({
 });
 
 const route = useRoute();
+const postedStudyArea = useState<unknown | null>(
+  `posted-study-area:${route.params.id}`,
+  () => useRequestEvent()?.context.postedStudyArea ?? null,
+);
+const importedStudyArea = ref(false);
 const { state: metadataState, load: loadMetadata } = useDatasetPage(
   String(route.params.id),
 );
@@ -112,6 +117,20 @@ await useAsyncData(`dataset-${route.params.id}`, loadMetadata, {
   server: false,
 });
 
+onMounted(() => {
+  watch(
+    metadataState,
+    (state) => {
+      if (state === "ready" && postedStudyArea.value) {
+        studyArea.save(postedStudyArea.value);
+        postedStudyArea.value = null;
+        importedStudyArea.value = true;
+      }
+    },
+    { immediate: true },
+  );
+});
+
 useHead(() => ({
   title: metadata.value?.title || "SKOPE",
   meta: metadata.value?.description
@@ -126,7 +145,8 @@ function clearGeometry() {
 }
 
 function mapLoaded(_value: boolean) {
-  shouldConfirmGeometry.value = hasValidStudyArea.value;
+  shouldConfirmGeometry.value =
+    hasValidStudyArea.value && !importedStudyArea.value;
 }
 
 function keepGeometry() {
