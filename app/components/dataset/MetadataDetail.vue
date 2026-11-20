@@ -43,11 +43,22 @@
     </section>
     <section class="metadata-section">
       <h3 class="text-h5">License</h3>
-      <p>{{ metadata.license }}</p>
+      <p>
+        <a
+          v-if="licenseHref"
+          :href="licenseHref"
+          target="_blank"
+          rel="noopener noreferrer"
+          :aria-label="`${licenseLabel} (opens in a new tab)`"
+        >
+          {{ licenseLabel }}
+        </a>
+        <template v-else>{{ licenseLabel }}</template>
+      </p>
     </section>
-    <section v-if="metadata.links.length > 0" class="metadata-section">
+    <section v-if="otherLinks.length > 0" class="metadata-section">
       <h3 class="text-h5">Links</h3>
-      <p v-for="link in metadata.links" :key="link.href">
+      <p v-for="link in otherLinks" :key="link.href">
         <a :href="link.href" target="_blank">{{ link.title ?? link.href }}</a>
       </p>
     </section>
@@ -58,9 +69,20 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import VariableList from "@/components/dataset/VariableList.vue";
+import { licenseLink } from "@/utils/licenseLink";
 import type { Dataset } from "@/types/metadata";
 
 const props = defineProps<{ metadata: Dataset }>();
+const licenseHref = computed(() => licenseLink(props.metadata));
+const licenseLabel = computed(() => {
+  if (props.metadata.license !== "other") return props.metadata.license;
+  return licenseHref.value
+    ? "See provider’s reuse terms"
+    : "Provider reuse terms (link unavailable)";
+});
+const otherLinks = computed(() =>
+  props.metadata.links.filter((link) => link.rel !== "license"),
+);
 
 const originators = computed(() =>
   props.metadata.providers

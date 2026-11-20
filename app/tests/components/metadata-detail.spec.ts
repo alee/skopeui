@@ -49,8 +49,27 @@ describe("MetadataDetail", () => {
   it("shows the license and the dataset's links", () => {
     const wrapper = mountDetail();
 
-    expect(wrapper.text()).toContain("CC-BY-4.0");
+    expect(
+      wrapper.get('a[href="https://spdx.org/licenses/CC-BY-4.0.html"]').text(),
+    ).toBe("CC-BY-4.0");
     expect(wrapper.text()).toContain("NOAA NCEI paleoclimatology study 19783");
+  });
+
+  it("shows a custom license source once and leaves legacy other values readable", async () => {
+    const href = "https://example.org/terms";
+    const wrapper = mountDetail({
+      license: "other",
+      links: [{ rel: "license", href }],
+    });
+    expect(wrapper.get(`a[href="${href}"]`).text()).toBe(
+      "See provider’s reuse terms",
+    );
+    expect(wrapper.findAll(`a[href="${href}"]`)).toHaveLength(1);
+    await wrapper.setProps({
+      metadata: { ...paleocar, license: "other", links: [] },
+    });
+    expect(wrapper.text()).toContain("Provider reuse terms (link unavailable)");
+    expect(wrapper.find('a[href*="spdx.org"]').exists()).toBe(false);
   });
 
   it("leaves out sections the dataset doesn't have", () => {
