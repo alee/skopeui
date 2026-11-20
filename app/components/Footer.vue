@@ -1,7 +1,7 @@
 <template>
   <!-- footer -->
-  <v-footer color="footer">
-    <v-card variant="flat" color="footer" class="text-center">
+  <v-footer color="footer" class="site-footer">
+    <v-card variant="flat" color="footer" class="footer-content text-center">
       <v-card-text class="text-white text-subtitle-1">
         This material is based upon work supported by the National Science
         Foundation under Grant Nos. SMA 1439591 and 1637189 to Arizona State
@@ -65,3 +65,15 @@ const github = {
   url: "https://github.com/openskope/skopeui/",
 };
 </script>
+
+<style scoped>
+.site-footer {
+  justify-content: center;
+}
+
+.footer-content {
+  width: 100%;
+  max-width: 1280px;
+  margin-inline: auto;
+}
+</style>

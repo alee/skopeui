@@ -8,9 +8,8 @@
       <v-btn
         v-bind="props"
         color="primary"
-        rounded
+        variant="flat"
         prepend-icon="mdi-upload"
-        class="mt-1"
         @click="selectLoadRequestDataFile"
       >
         <input

@@ -36,7 +36,7 @@
           :target="link.external ? '_blank' : undefined"
           :rel="link.external ? 'noopener noreferrer' : undefined"
           color="primary"
-          variant="text"
+          variant="flat"
           :prepend-icon="link.icon"
         >
           {{ link.label }}
@@ -48,6 +48,7 @@
             v-bind="props"
             icon="mdi-help-circle-outline"
             class="help-menu-toggle"
+            variant="flat"
             aria-label="Help and contact"
             color="primary"
           />
@@ -107,6 +108,22 @@ function toggleNavigationDrawer() {
   gap: 8px;
   padding-inline-end: 16px;
   flex-shrink: 0;
+}
+
+// Explicit typography also covers buttons rendered by the two child components.
+.header-actions :deep(.v-btn) {
+  font-family: "Roboto", sans-serif;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.25rem;
+  letter-spacing: 0.1px;
+  text-transform: none;
+  border-radius: 4px;
+}
+
+.header-actions :deep(.v-btn:focus-visible) {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 3px;
 }
 
 .skope-title {
