@@ -10,7 +10,13 @@
     class="align-center justify-center"
     data-test="page-loading"
   >
-    <v-progress-circular indeterminate color="primary" size="48" width="4" />
+    <v-progress-circular
+      aria-label="Loading page"
+      indeterminate
+      color="primary"
+      size="48"
+      width="4"
+    />
   </v-overlay>
 </template>
 

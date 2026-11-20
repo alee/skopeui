@@ -2,7 +2,7 @@
   <!-- Tall enough for the title and subtitle; at 64px the title was cut. -->
   <v-app-bar src="/header.png" height="80">
     <template #image>
-      <v-img src="/header.png" cover />
+      <v-img src="/header.png" alt="" aria-hidden="true" cover />
     </template>
     <!-- Wider screens show the steps in the step bar instead. -->
     <v-app-bar-nav-icon

@@ -9,6 +9,7 @@
         icon
         size="x-small"
         href="https://www.openskope.org/skope-users-guide/"
+        aria-label="SKOPE user guide (opens in a new tab)"
         target="_blank"
       >
         <v-icon>mdi-help-circle-outline</v-icon>

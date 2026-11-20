@@ -48,6 +48,7 @@
     >
       <v-progress-circular
         v-if="isStepLoading"
+        aria-hidden="true"
         indeterminate
         size="18"
         width="2"

@@ -27,6 +27,7 @@ export default defineNuxtConfig({
   app: {
     head: {
       title: "skopeui",
+      htmlAttrs: { lang: "en" },
       meta: [
         { charset: "utf-8" },
         { name: "viewport", content: "width=device-width, initial-scale=1" },
@@ -93,6 +94,8 @@ export default defineNuxtConfig({
         themes: {
           light: {
             colors: THEME_COLORS,
+            // Keep small labels and hints legible on filled and white fields.
+            variables: { "medium-emphasis-opacity": 0.75 },
           },
         },
       },

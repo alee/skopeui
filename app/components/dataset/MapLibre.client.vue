@@ -67,9 +67,7 @@
               aria-label="Base map"
               data-test="basemap-button"
             >
-              <v-icon size="18">
-                mdi-layers-outline
-              </v-icon>
+              <v-icon size="18"> mdi-layers-outline </v-icon>
             </button>
           </template>
           <v-list density="compact">
@@ -88,6 +86,7 @@
       </Teleport>
       <div v-if="isStepLoading" class="map-step-loading">
         <v-progress-circular
+          aria-label="Loading map"
           indeterminate
           color="primary"
           size="48"
