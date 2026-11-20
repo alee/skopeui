@@ -1,6 +1,6 @@
 <template>
   <ClientOnly>
-    <v-btn variant="plain" color="white" class="text-subtitle-1" @click="open">
+    <v-btn variant="outlined" color="primary" @click="open">
       <v-icon start>mdi-bug-outline</v-icon>
       Report a bug
     </v-btn>

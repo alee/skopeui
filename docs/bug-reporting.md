@@ -1,6 +1,6 @@
 # Bug reports
 
-The footer's Report a bug form submits explicit user feedback to the existing
+The header's Report a bug form submits explicit user feedback to the existing
 Sentry project. It does not require a Sentry account, GitHub account or email
 client. Contact remains available for general correspondence.
 
