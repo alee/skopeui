@@ -26,7 +26,7 @@ let extractionStore: any;
 vi.mock("@/components/dataset/Map.client.vue", () => ({
   default: {
     name: "MapStub",
-    props: ["displayRaster", "step"],
+    props: ["displayRaster", "step", "preloadStep"],
     template:
       '<div data-test="map" :data-display-raster="String(displayRaster)">map<slot name="footer" /></div>',
   },
@@ -162,6 +162,38 @@ describe("route /dataset/:id/visualize/:variable", () => {
     await nextTick();
     expect(controls.props("stepSelected")).toBe(2);
     expect(controls.props("isStepLoading")).toBe(false);
+    wrapper.unmount();
+  });
+
+  it("[behavior] passes lookahead to the map only while playing a ready frame", async () => {
+    datasetStore.metadata = {
+      ...datasetStore.metadata,
+      time: {
+        kind: "regular",
+        origin: "0001",
+        end: "0003",
+        step: "P1Y",
+        count: 3,
+      },
+    };
+    const wrapper = await mountWithSuspense(VisualizePage, {
+      global: { stubs: layoutStubs },
+    });
+    await flushPromises();
+    const map = wrapper.findComponent({ name: "MapStub" });
+    const controls = wrapper.findComponent({
+      name: "RasterPlaybackControlsStub",
+    });
+    map.vm.$emit("step-ready", 1);
+    await nextTick();
+    controls.vm.$emit("toggle-playback");
+    await nextTick();
+    expect(map.props("preloadStep")).toBe(2);
+    expect(controls.props("stepSelected")).toBe(1);
+    expect(controls.props("isStepLoading")).toBe(false);
+    controls.vm.$emit("toggle-playback");
+    await nextTick();
+    expect(map.props("preloadStep")).toBeNull();
     wrapper.unmount();
   });
 

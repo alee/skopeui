@@ -19,13 +19,13 @@ describe("raster playback", () => {
     vi.useRealTimers();
   });
 
-  it("waits for the requested raster and holds it for four seconds", () => {
+  it("waits for the requested raster and holds it for two seconds", () => {
     const p = setup();
     p.togglePlay();
     vi.advanceTimersByTime(5000);
     expect(p.requestedStep.value).toBe(103);
     p.frameReady(103);
-    vi.advanceTimersByTime(3999);
+    vi.advanceTimersByTime(1999);
     expect(p.requestedStep.value).toBe(103);
     vi.advanceTimersByTime(1);
     expect(p.requestedStep.value).toBe(104);
@@ -34,10 +34,32 @@ describe("raster playback", () => {
     expect(p.requestedStep.value).toBe(104);
     p.frameReady(104);
     expect(p.displayedStep.value).toBe(104);
-    vi.advanceTimersByTime(4000);
+    vi.advanceTimersByTime(2000);
     expect(p.requestedStep.value).toBe(106);
     p.frameReady(106);
     expect(p.isPlaying.value).toBe(false);
+  });
+
+  it("preloads one year ahead only during a ready frame's hold", async () => {
+    const p = setup();
+    expect(p.preloadStep.value).toBeNull();
+    p.togglePlay();
+    expect(p.preloadStep.value).toBeNull();
+    p.frameReady(103);
+    expect(p.preloadStep.value).toBe(104);
+    vi.advanceTimersByTime(2000);
+    expect(p.requestedStep.value).toBe(104);
+    expect(p.preloadStep.value).toBeNull();
+    p.frameReady(104);
+    expect(p.preloadStep.value).toBe(106);
+    p.pause();
+    expect(p.preloadStep.value).toBeNull();
+    p.togglePlay();
+    p.range.value = [103, 104];
+    await nextTick();
+    expect(p.preloadStep.value).toBeNull();
+    p.frameReady(106);
+    expect(p.preloadStep.value).toBeNull();
   });
 
   it("restarts at the first year when Play is pressed at the end", () => {

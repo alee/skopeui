@@ -24,6 +24,7 @@ export function createRasterController(options: RasterOptions) {
   const COG_B = { sourceId: "cog-source-b", layerId: "cog-layer-b" };
   let cogFront = COG_A; // currently visible slot
   let cogBack = COG_B; // currently loading / empty slot
+  let preloadedStep: number | null = null;
   let pendingFrameCheck: (() => void) | null = null;
   let pendingFrameSource: string | null = null;
   let pendingFrameStep: number | null = null;
@@ -46,7 +47,8 @@ export function createRasterController(options: RasterOptions) {
     map.addSource(slot.sourceId, {
       type: "raster",
       tiles: [url],
-      tileSize: 128,
+      // TiTiler serves the WebMercatorQuad matrix at its native 256px size.
+      tileSize: 256,
       ...(bounds && { bounds }),
     });
     map.addLayer(
@@ -76,6 +78,7 @@ export function createRasterController(options: RasterOptions) {
       pendingFrameCheck = null;
       pendingFrameSource = null;
       pendingFrameStep = null;
+      preloadedStep = null;
       removeCogSlot(cogBack); // discard the back buffer that was loading
     }
   }
@@ -99,6 +102,7 @@ export function createRasterController(options: RasterOptions) {
         map.setPaintProperty(slot.layerId, "raster-opacity", 0.7);
         removeCogSlot(cogFront);
         [cogFront, cogBack] = [cogBack, cogFront];
+        preloadedStep = null;
       }
       const displayed = () => {
         if (!map || pendingFrameCheck !== displayed) return;
@@ -134,6 +138,7 @@ export function createRasterController(options: RasterOptions) {
     cancelPendingSwap();
     removeCogSlot(cogFront);
     removeCogSlot(cogBack);
+    preloadedStep = null;
     options.onLoading(false);
   }
 
@@ -144,12 +149,38 @@ export function createRasterController(options: RasterOptions) {
       return;
     }
 
-    cancelPendingSwap();
-    addCogSlot(cogBack, step, 0); // load invisibly
+    if (preloadedStep !== step) {
+      cancelPendingSwap();
+      removeCogSlot(cogBack);
+      addCogSlot(cogBack, step, 0);
+    }
+    preloadedStep = null;
     waitForFrame(cogBack, step, true);
   }
 
+  // One frame of lookahead, using the same source later committed by updateStep.
+  // No readiness events or loading indicator until the frame is requested.
+  function preloadStep(step: number | null) {
+    if (!map || !isMapLoaded || pendingFrameCheck || !options.baseUrl()) return;
+    if (step === preloadedStep) return;
+    removeCogSlot(cogBack);
+    preloadedStep = step;
+    if (step != null) addCogSlot(cogBack, step, 0);
+  }
+
   function handleError(event: unknown) {
+    if (
+      event &&
+      typeof event === "object" &&
+      "sourceId" in event &&
+      event.sourceId === cogBack.sourceId &&
+      preloadedStep != null
+    ) {
+      // A speculative failure should not interrupt the visible year. Retry
+      // through the normal requested-frame path when its deadline arrives.
+      preloadStep(null);
+      return;
+    }
     if (
       !event ||
       typeof event !== "object" ||
@@ -212,6 +243,7 @@ export function createRasterController(options: RasterOptions) {
     initialize,
     initializeLegend,
     updateStep: updateRasterLayer,
+    preloadStep,
     reset,
     updateLegend,
     setLegendVisible,

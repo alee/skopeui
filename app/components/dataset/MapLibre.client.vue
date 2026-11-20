@@ -126,6 +126,7 @@ import {
 
 const props = defineProps({
   step: { type: Number, default: 2000 },
+  preloadStep: { type: [Number, null], default: null },
   displayRaster: { type: Boolean, default: true },
 });
 const emit = defineEmits(["mapReady", "stepReady", "stepError"]);
@@ -304,8 +305,12 @@ watch(
 );
 watch(selectedBaseLayerId, (id) => scene.selectBaseLayer(id));
 watch(
-  () => props.step,
-  (step) => raster.updateStep(step),
+  () => [props.step, props.preloadStep] as const,
+  ([step, preloadStep], [previousStep]) => {
+    // Commit first so clearing lookahead cannot discard the requested buffer.
+    if (step !== previousStep) raster.updateStep(step);
+    raster.preloadStep(preloadStep);
+  },
 );
 watch(legendOptions, (options) => raster.updateLegend(options));
 watch(legendVisible, (visible) => raster.setLegendVisible(visible));

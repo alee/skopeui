@@ -42,6 +42,7 @@
         >
           <Map
             :step="requestedStep"
+            :preload-step="preloadStep"
             :display-raster="true"
             @step-ready="frameReady"
             @step-error="frameFailed"
@@ -121,6 +122,7 @@ const playbackRange = computed(
 );
 const {
   requestedStep,
+  preloadStep,
   displayedStep: stepSelected,
   isPlaying,
   isLoading: isStepLoading,

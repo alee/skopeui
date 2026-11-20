@@ -423,6 +423,7 @@ describe("MapLibre", () => {
 
     // No colormap or rescale: the key is padded, and nothing follows it.
     const source = mocks.mapInstances[0].getStyle().sources["cog-source-a"];
+    expect(source.tileSize).toBe(256);
     expect(source.tiles[0]).toBe(
       "https://test.example.com/tiles/paleocar/ppt_annual/0590/{z}/{x}/{y}",
     );
@@ -505,6 +506,87 @@ describe("MapLibre", () => {
     expect(wrapper.emitted("stepError")).toEqual([[103]]);
     expect(wrapper.emitted("stepReady")).toBeUndefined();
     expect(map.eventHandlers.render).toEqual([]);
+    wrapper.unmount();
+  });
+
+  it("[behavior] preloads without advancing, then reuses the buffer at the deadline", async () => {
+    const wrapper = mount(MapLibre, {
+      global: { stubs: uiStubs },
+      props: { step: 103 },
+    });
+    await flushPromises();
+    const map = mocks.mapInstances[0];
+    const render = () =>
+      [...map.eventHandlers.render].forEach((fn: Function) => fn());
+    render();
+    render();
+    await wrapper.setProps({ preloadStep: 104 });
+    const buffer = map.getStyle().sources["cog-source-b"];
+    expect(buffer.tiles[0]).toContain("/0104/");
+    render();
+    render();
+    expect(wrapper.emitted("stepReady")).toEqual([[103]]);
+    expect(map.setPaintProperty).not.toHaveBeenCalled();
+    await wrapper.setProps({ step: 104, preloadStep: null });
+    expect(map.getStyle().sources["cog-source-b"]).toBe(buffer);
+    map.isSourceLoaded.mockReturnValue(false);
+    render();
+    expect(map.getSource("cog-source-a")).toBeDefined();
+    expect(wrapper.emitted("stepReady")).toEqual([[103]]);
+    map.isSourceLoaded.mockReturnValue(true);
+    render();
+    render();
+    expect(wrapper.emitted("stepReady")).toEqual([[103], [104]]);
+    await wrapper.setProps({ preloadStep: 106 });
+    expect(map.getStyle().sources["cog-source-a"].tiles[0]).toContain("/0106/");
+    await wrapper.setProps({ preloadStep: null });
+    expect(map.getSource("cog-source-a")).toBeUndefined();
+    expect(map.getSource("cog-source-b")).toBeDefined();
+    wrapper.unmount();
+  });
+
+  it("[behavior] retries a failed preload when requested without interrupting playback", async () => {
+    const wrapper = mount(MapLibre, {
+      global: { stubs: uiStubs },
+      props: { step: 103 },
+    });
+    await flushPromises();
+    const map = mocks.mapInstances[0];
+    const render = () =>
+      [...map.eventHandlers.render].forEach((fn: Function) => fn());
+    render();
+    render();
+    await wrapper.setProps({ preloadStep: 104 });
+    map.eventHandlers.error.forEach((fn: Function) =>
+      fn({ sourceId: "cog-source-b" }),
+    );
+    expect(wrapper.emitted("stepError")).toBeUndefined();
+    expect(map.getSource("cog-source-b")).toBeUndefined();
+    await wrapper.setProps({ step: 104, preloadStep: null });
+    expect(map.getStyle().sources["cog-source-b"].tiles[0]).toContain("/0104/");
+    render();
+    render();
+    expect(wrapper.emitted("stepReady")).toEqual([[103], [104]]);
+    wrapper.unmount();
+  });
+
+  it("[behavior] discards lookahead when manually selecting a different year", async () => {
+    const wrapper = mount(MapLibre, {
+      global: { stubs: uiStubs },
+      props: { step: 103 },
+    });
+    await flushPromises();
+    const map = mocks.mapInstances[0];
+    const render = () =>
+      [...map.eventHandlers.render].forEach((fn: Function) => fn());
+    render();
+    render();
+    await wrapper.setProps({ preloadStep: 104 });
+    await wrapper.setProps({ step: 106, preloadStep: null });
+    expect(map.getStyle().sources["cog-source-b"].tiles[0]).toContain("/0106/");
+    render();
+    render();
+    expect(wrapper.emitted("stepReady")).toEqual([[103], [106]]);
     wrapper.unmount();
   });
 

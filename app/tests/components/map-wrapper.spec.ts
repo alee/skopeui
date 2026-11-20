@@ -5,7 +5,7 @@ import Map from "@/components/dataset/Map.client.vue";
 vi.mock("@/components/dataset/MapLibre.client.vue", () => ({
   default: {
     name: "MapLibreStub",
-    props: ["step", "displayRaster"],
+    props: ["step", "preloadStep", "displayRaster"],
     emits: ["mapReady", "stepReady", "stepError"],
     template: '<div data-test="maplibre"><slot name="footer" /></div>',
   },
@@ -13,10 +13,12 @@ vi.mock("@/components/dataset/MapLibre.client.vue", () => ({
 
 describe("Map wrapper", () => {
   it("renders MapLibre with the supplied raster settings", () => {
-    const wrapper = mount(Map, { props: { step: 590, displayRaster: false } });
+    const wrapper = mount(Map, {
+      props: { step: 590, preloadStep: 591, displayRaster: false },
+    });
     expect(
       wrapper.findComponent({ name: "MapLibreStub" }).props(),
-    ).toMatchObject({ step: 590, displayRaster: false });
+    ).toMatchObject({ step: 590, preloadStep: 591, displayRaster: false });
   });
   it("preserves defaults, readiness events and the footer slot", () => {
     const wrapper = mount(Map, {

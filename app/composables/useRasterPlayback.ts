@@ -1,6 +1,8 @@
 import { computed, onScopeDispose, ref, watch, type Ref } from "vue";
 import { stepAlongAxis } from "@/utils/timeAxis";
 
+const FRAME_HOLD_MS = 2000;
+
 /** One requested frame at a time; the map acknowledges the year it rendered. */
 export function useRasterPlayback(
   years: Ref<number[]>,
@@ -25,15 +27,22 @@ export function useRasterPlayback(
     clearTimeout(timer);
   }
 
+  const nextStep = computed(() =>
+    stepAlongAxis(years.value, displayedStep.value, 1, range.value),
+  );
+  // Only speculate while the current frame is ready and playback is active.
+  const preloadStep = computed(() =>
+    isPlaying.value &&
+    !isLoading.value &&
+    nextStep.value !== displayedStep.value
+      ? nextStep.value
+      : null,
+  );
+
   function scheduleNext() {
     clearTimeout(timer);
     if (!isPlaying.value || isLoading.value) return;
-    const next = stepAlongAxis(
-      years.value,
-      displayedStep.value,
-      1,
-      range.value,
-    );
+    const next = nextStep.value;
     if (next === displayedStep.value) {
       pause();
       return;
@@ -41,7 +50,7 @@ export function useRasterPlayback(
     timer = setTimeout(() => {
       requestedStep.value = next;
       readyStep.value = null;
-    }, 4000);
+    }, FRAME_HOLD_MS);
   }
 
   function frameReady(step: number) {
@@ -81,6 +90,7 @@ export function useRasterPlayback(
 
   return {
     requestedStep,
+    preloadStep,
     displayedStep,
     isPlaying,
     isLoading,
