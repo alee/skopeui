@@ -2,6 +2,7 @@
   <div
     ref="container"
     class="dataset-map-preview"
+    role="region"
     :aria-label="`Map of ${title}`"
   />
 </template>

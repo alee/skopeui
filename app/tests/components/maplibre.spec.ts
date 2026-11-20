@@ -47,6 +47,9 @@ const mocks = vi.hoisted(() => {
     numberOfCells: 0,
     areaInSquareKm: 0,
     geoJson: null,
+    get hasGeoJson() {
+      return this.geoJson !== null;
+    },
   } as any;
 
   const studyArea = {
@@ -159,6 +162,8 @@ const mocks = vi.hoisted(() => {
     geomanInstance,
     mapInstances,
     MockMap,
+    download: vi.fn(),
+    messageError: vi.fn(),
   };
 });
 
@@ -172,7 +177,7 @@ vi.mock("@/stores/dataset", () => ({
 
 vi.mock("@/stores/messages", () => ({
   useMessagesStore: () => ({
-    error: vi.fn(),
+    error: mocks.messageError,
     info: vi.fn(),
     dismiss: vi.fn(),
   }),
@@ -227,6 +232,9 @@ const uiStubs = {
 describe("MapLibre", () => {
   beforeEach(() => {
     vi.stubGlobal("useRoute", () => mocks.routeState);
+    vi.stubGlobal("useNuxtApp", () => ({
+      $download: { saveAs: mocks.download },
+    }));
     vi.stubGlobal("useRuntimeConfig", () => ({
       public: {
         apiBase: "https://test.example.com",
@@ -671,6 +679,121 @@ describe("MapLibre", () => {
       geometry: { type: "Point", coordinates: [-108.5, 37] },
     } as any;
     expect(await downloadDisabled()).toBeUndefined();
+  });
+
+  it("[behavior] downloads the shape from the button's activation handler", async () => {
+    mocks.datasetStore.geoJson = {
+      type: "Point",
+      coordinates: [-108, 37],
+    };
+    const wrapper = mount(MapLibre, { global: { stubs: uiStubs } });
+    await wrapper
+      .findAll("button")
+      .find((b) => b.text() === "Download GeoJSON")!
+      .trigger("click");
+    expect(mocks.download).toHaveBeenCalledWith(
+      expect.any(Blob),
+      "paleocar.geojson",
+    );
+    expect(wrapper.find("button a").exists()).toBe(false);
+    wrapper.unmount();
+  });
+
+  it.each(["{}", "not JSON"])(
+    "[behavior] preserves the selected area after invalid upload: %s",
+    async (text) => {
+      const area = { type: "Point", coordinates: [-108, 37] };
+      mocks.datasetStore.geoJson = area;
+      const wrapper = mount(MapLibre, { global: { stubs: uiStubs } });
+      const input = wrapper.get<HTMLInputElement>("#loadGeoJsonFile");
+      Object.defineProperty(input.element, "files", {
+        value: [{ text: async () => text }],
+      });
+      await input.trigger("change");
+      await flushPromises();
+      expect(mocks.studyArea.save).not.toHaveBeenCalled();
+      expect(mocks.datasetStore.geoJson).toBe(area);
+      expect(mocks.messageError).toHaveBeenCalledWith(
+        expect.stringContaining("Your current selection has been kept."),
+      );
+      wrapper.unmount();
+    },
+  );
+
+  it("[behavior] reports file read failures without replacing the selection", async () => {
+    const wrapper = mount(MapLibre, { global: { stubs: uiStubs } });
+    const input = wrapper.get<HTMLInputElement>("#loadGeoJsonFile");
+    Object.defineProperty(input.element, "files", {
+      value: [
+        {
+          text: async () => {
+            throw new Error("File unavailable");
+          },
+        },
+      ],
+    });
+    await input.trigger("change");
+    await flushPromises();
+    expect(mocks.studyArea.save).not.toHaveBeenCalled();
+    expect(mocks.messageError).toHaveBeenCalledWith(
+      expect.stringContaining("Unable to import"),
+    );
+    wrapper.unmount();
+  });
+
+  it.each(["navigation", "unmount", "newer upload"])(
+    "[behavior] discards an upload that finishes after %s",
+    async (interruption) => {
+      let finishReading!: (text: string) => void;
+      const wrapper = mount(MapLibre, { global: { stubs: uiStubs } });
+      const input = wrapper.get<HTMLInputElement>("#loadGeoJsonFile");
+      Object.defineProperty(input.element, "files", {
+        configurable: true,
+        value: [
+          {
+            text: () =>
+              new Promise<string>((resolve) => {
+                finishReading = resolve;
+              }),
+          },
+        ],
+      });
+      await input.trigger("change");
+      if (interruption === "navigation")
+        mocks.routeState.params.id = "another_dataset";
+      else if (interruption === "unmount") wrapper.unmount();
+      else {
+        Object.defineProperty(input.element, "files", {
+          value: [{ text: async () => "{}" }],
+        });
+        await input.trigger("change");
+        await flushPromises();
+        mocks.messageError.mockClear();
+      }
+      finishReading('{"type":"Point","coordinates":[-108,37]}');
+      await flushPromises();
+      expect(mocks.studyArea.save).not.toHaveBeenCalled();
+      expect(mocks.messageError).not.toHaveBeenCalled();
+      if (interruption !== "unmount") wrapper.unmount();
+    },
+  );
+
+  it("[behavior] imports one normalized feature", async () => {
+    const wrapper = mount(MapLibre, { global: { stubs: uiStubs } });
+    const input = wrapper.get<HTMLInputElement>("#loadGeoJsonFile");
+    const geometry = { type: "Point", coordinates: [-108, 37] };
+    Object.defineProperty(input.element, "files", {
+      value: [{ text: async () => JSON.stringify(geometry) }],
+    });
+    await input.trigger("change");
+    await flushPromises();
+    expect(mocks.studyArea.save).toHaveBeenCalledWith({
+      type: "Feature",
+      properties: {},
+      geometry,
+    });
+    expect(input.element.value).toBe("");
+    wrapper.unmount();
   });
 
   it("[behavior] zooms to a point shape without zooming all the way in", async () => {

@@ -89,6 +89,9 @@ export default defineNuxtConfig({
     // Keep Nuxt useLayout distinct from Vuetify useVLayout.
     moduleOptions: { prefixComposables: true },
     vuetifyOptions: {
+      // Eager tooltip roots expose empty tooltip roles while their content is
+      // hidden. Mount the overlay when opened and remove it after closing.
+      defaults: { VTooltip: { eager: false } },
       theme: {
         defaultTheme: "light",
         themes: {
