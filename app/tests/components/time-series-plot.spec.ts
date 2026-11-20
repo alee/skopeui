@@ -42,7 +42,7 @@ function mountPlot(props: Record<string, unknown> = {}) {
             </template>
           </div>`,
         },
-        "v-btn": true,
+        "v-btn": { template: "<button><slot /></button>" },
         "v-icon": true,
         "v-tooltip": true,
         "v-alert": true,
@@ -106,7 +106,6 @@ describe("TimeSeriesPlot range submission", () => {
     const store = useDatasetStore();
     validateRange.mockResolvedValueOnce({ valid: false });
     const wrapper = mountPlot();
-    await wrapper.find(".time-series-range").trigger("click");
     const from = wrapper.find(".time-series-range input");
     await from.setValue("1");
     await from.trigger("keydown", { key: "Enter" });
@@ -117,9 +116,33 @@ describe("TimeSeriesPlot range submission", () => {
     wrapper.unmount();
   });
 
+  it("starts editable and keeps changes local until Apply", async () => {
+    const store = useDatasetStore();
+    const wrapper = mountPlot();
+    const from = wrapper.find(".time-series-range input");
+    expect(from.attributes("disabled")).toBeUndefined();
+    await from.setValue("1600");
+    expect(store.temporalRange).toEqual([1500, 1800]);
+    expect(wrapper.emitted("selected-temporal-range")).toBeUndefined();
+    // Vuetify updates form validity after validating the fields.
+    wrapper
+      .findComponent({ ref: "temporalRangeForm" })
+      .vm.$emit("update:modelValue", true);
+    await flushPromises();
+    await wrapper
+      .findAll("button")
+      .find((button) => button.text() === "Apply")!
+      .trigger("click");
+    await flushPromises();
+    expect(store.temporalRange).toEqual([1600, 1800]);
+    store.setTemporalRange([1700, 1900]);
+    await flushPromises();
+    expect((from.element as HTMLInputElement).value).toBe("1700");
+    wrapper.unmount();
+  });
+
   it("keeps an unsubmitted time range when moving between steps", async () => {
     const first = mountPlot();
-    await first.find(".time-series-range").trigger("click");
     await first.find(".time-series-range input").setValue("1600");
     first.unmount();
     const second = mountPlot();
@@ -135,7 +158,6 @@ describe("TimeSeriesPlot range submission", () => {
   it("applies a valid draft on Enter without requiring blur first", async () => {
     const store = useDatasetStore();
     const wrapper = mountPlot();
-    await wrapper.find(".time-series-range").trigger("click");
     const from = wrapper.find(".time-series-range input");
     await from.setValue("1600");
     await from.trigger("keydown", { key: "Enter" });

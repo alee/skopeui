@@ -6,18 +6,17 @@
         ref="temporalRangeForm"
         v-model="isTemporalRangeValid"
         class="time-series-range"
-        @click="enableTemporalRangeEdit"
+        @focusin="emit('pause-playback')"
         @submit.prevent="setTemporalRange"
       >
         <v-text-field
-          v-model.number="formTemporalRangeMin"
+          v-model.number="localTemporalRangeMin"
           class="time-series-range-field"
           label="From"
           density="compact"
           variant="outlined"
           :hide-details="false"
           validate-on="blur"
-          :disabled="!isTemporalRangeEditable"
           :min="minStep"
           :max="maxStep - 1"
           type="number"
@@ -25,14 +24,13 @@
           @keydown.enter.prevent="setTemporalRange"
         />
         <v-text-field
-          v-model.number="formTemporalRangeMax"
+          v-model.number="localTemporalRangeMax"
           class="time-series-range-field"
           label="To"
           density="compact"
           variant="outlined"
           :hide-details="false"
           validate-on="blur"
-          :disabled="!isTemporalRangeEditable"
           :min="minStep + 1"
           :max="maxStep"
           :rules="[validateMaxStep]"
@@ -102,12 +100,13 @@
         class="timeseries-loading-overlay"
       >
         <v-progress-circular
+          aria-label="Loading time series"
           indeterminate
           color="primary"
           size="52"
           width="4"
         />
-        <p class="loading-message mt-4">{{ loadingMessage }}</p>
+        <p role="status" class="loading-message mt-4">{{ loadingMessage }}</p>
       </div>
       <client-only placeholder="Loading...">
         <template
@@ -194,7 +193,6 @@ const datasetStore = useDatasetStore();
 // Local state
 const localTemporalRangeMin = ref(1);
 const localTemporalRangeMax = ref(new Date().getFullYear());
-const isTemporalRangeEditable = ref(false);
 const isTemporalRangeValid = ref(false);
 const temporalRangeForm = ref<InstanceType<typeof VForm> | null>(null);
 let plotImageApi: PlotImageApi | null = null;
@@ -258,28 +256,6 @@ const hasMultipleTimeSeries = computed(
 const canHandleTimeSeriesRequest = computed(
   () => datasetStore.canHandleTimeSeriesRequest,
 );
-
-const formTemporalRangeMin = computed({
-  get() {
-    return isTemporalRangeEditable.value
-      ? localTemporalRangeMin.value
-      : selectedTemporalRange.value[0];
-  },
-  set(value: number) {
-    localTemporalRangeMin.value = value;
-  },
-});
-
-const formTemporalRangeMax = computed({
-  get() {
-    return isTemporalRangeEditable.value
-      ? localTemporalRangeMax.value
-      : selectedTemporalRange.value[1];
-  },
-  set(value: number) {
-    localTemporalRangeMax.value = value;
-  },
-});
 
 const hasTemporalRangeChanges = computed(
   () =>
@@ -390,23 +366,21 @@ const options = computed<Partial<Config>>(() => ({
 }));
 
 // Methods
-function enableTemporalRangeEdit() {
-  emit("pause-playback");
-  if (isTemporalRangeEditable.value) return;
-  localTemporalRangeMin.value = selectedTemporalRange.value[0];
-  localTemporalRangeMax.value = selectedTemporalRange.value[1];
-  isTemporalRangeEditable.value = true;
-}
-
 function validateMinStep(value: number) {
+  if (!Number.isInteger(value)) return "Enter a whole year.";
   if (value < minStep.value) return `Use ${minStep.value} or later.`;
   if (value >= maxStep.value) return `Use a year before ${maxStep.value}.`;
+  if (value > localTemporalRangeMax.value)
+    return "From must be no later than To.";
   return true;
 }
 
 function validateMaxStep(value: number) {
+  if (!Number.isInteger(value)) return "Enter a whole year.";
   if (value <= minStep.value) return `Use a year after ${minStep.value}.`;
   if (value > maxStep.value) return `Use ${maxStep.value} or earlier.`;
+  if (value < localTemporalRangeMin.value)
+    return "To must be no earlier than From.";
   return true;
 }
 
@@ -430,7 +404,6 @@ async function setTemporalRange() {
     localTemporalRangeMin.value,
     localTemporalRangeMax.value,
   ];
-  isTemporalRangeEditable.value = false;
   if (props.stepSelected == null) return;
   if (props.stepSelected < temporalRangeMin.value)
     setStep(temporalRangeMin.value);
@@ -439,7 +412,7 @@ async function setTemporalRange() {
 }
 
 function resetTemporalRange() {
-  enableTemporalRangeEdit();
+  emit("pause-playback");
   localTemporalRangeMin.value = datasetStore.minYear;
   localTemporalRangeMax.value = datasetStore.maxYear;
   setTemporalRange();
@@ -542,7 +515,6 @@ onMounted(() => {
   if (draft && draft.range[0] === min && draft.range[1] === max) {
     localTemporalRangeMin.value = draft.min;
     localTemporalRangeMax.value = draft.max;
-    isTemporalRangeEditable.value = true;
   } else {
     localTemporalRangeMin.value = min;
     localTemporalRangeMax.value = max;
@@ -550,14 +522,13 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
-  datasetStore.temporalRangeDraft =
-    isTemporalRangeEditable.value && hasTemporalRangeChanges.value
-      ? {
-          range: [...selectedTemporalRange.value],
-          min: localTemporalRangeMin.value,
-          max: localTemporalRangeMax.value,
-        }
-      : null;
+  datasetStore.temporalRangeDraft = hasTemporalRangeChanges.value
+    ? {
+        range: [...selectedTemporalRange.value],
+        min: localTemporalRangeMin.value,
+        max: localTemporalRangeMax.value,
+      }
+    : null;
 });
 
 watch(
@@ -578,11 +549,9 @@ watch(
       selectedTemporalRange.value = [nextMin, nextMax];
     }
 
-    // Keep form inputs in sync unless the user is actively editing.
-    if (!isTemporalRangeEditable.value) {
-      localTemporalRangeMin.value = selectedTemporalRange.value[0];
-      localTemporalRangeMax.value = selectedTemporalRange.value[1];
-    }
+    // An externally applied interval supersedes any unsubmitted draft.
+    localTemporalRangeMin.value = selectedTemporalRange.value[0];
+    localTemporalRangeMax.value = selectedTemporalRange.value[1];
   },
   { immediate: true },
 );
