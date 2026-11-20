@@ -84,6 +84,7 @@ const mocks = vi.hoisted(() => {
     });
     fitBounds = vi.fn();
     remove = vi.fn();
+    resize = vi.fn();
     setLayoutProperty = vi.fn((id: string, property: string, value: string) => {
       const layer = this.style.layers.find((entry) => entry.id === id);
       if (!layer) return;
@@ -164,6 +165,7 @@ const mocks = vi.hoisted(() => {
     MockMap,
     download: vi.fn(),
     messageError: vi.fn(),
+    removeAttribution: vi.fn(),
   };
 });
 
@@ -190,6 +192,14 @@ vi.mock("@/composables/useStudyArea", () => ({
 vi.mock("maplibre-gl", () => ({
   Map: mocks.MockMap,
   NavigationControl: class MockNavigationControl {},
+  AttributionControl: class MockAttributionControl {
+    onAdd() {
+      const element = document.createElement("div");
+      element.textContent = "Map credits";
+      return element;
+    }
+    onRemove = mocks.removeAttribution;
+  },
   ScaleControl: class MockScaleControl {},
   setWorkerUrl: vi.fn(),
 }));
@@ -254,6 +264,33 @@ describe("MapLibre", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.clearAllMocks();
+  });
+
+  it("[behavior] keeps credits below the map and detaches them on navigation", async () => {
+    let resize!: () => void;
+    const disconnect = vi.fn();
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe = vi.fn();
+        disconnect = disconnect;
+        constructor(callback: () => void) {
+          resize = callback;
+        }
+      },
+    );
+    const wrapper = mount(MapLibre, { global: { stubs: uiStubs } });
+    await flushPromises();
+    expect(wrapper.get(".map-attribution").text()).toBe("Map credits");
+    expect(wrapper.get(".map-frame").text()).not.toContain("Map credits");
+    const map = mocks.mapInstances[0];
+    resize();
+    expect(map.resize).toHaveBeenCalledOnce();
+    wrapper.unmount();
+    resize();
+    expect(map.resize).toHaveBeenCalledOnce();
+    expect(disconnect).toHaveBeenCalledOnce();
+    expect(mocks.removeAttribution).toHaveBeenCalledOnce();
   });
 
   it("[behavior] discards drawing tools that finish loading after navigation", async () => {

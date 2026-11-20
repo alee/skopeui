@@ -1,5 +1,9 @@
 <template>
-  <v-card variant="outlined" class="time-series-card">
+  <v-card
+    variant="outlined"
+    class="time-series-card"
+    :class="{ 'time-series-card--compact': compactPlot }"
+  >
     <PanelHeader class="time-series-header">
       <AreaReadout v-if="showArea" />
       <v-form
@@ -94,7 +98,7 @@
       </v-text-field>
     </PanelHeader>
 
-    <div class="time-series-plot-shell">
+    <div ref="plotShell" class="time-series-plot-shell">
       <div
         v-if="timeSeriesRequestStatus.status === 'loading'"
         class="timeseries-loading-overlay"
@@ -153,12 +157,13 @@ import {
   defineAsyncComponent,
 } from "vue";
 import type { VForm } from "vuetify/components";
+import { useElementSize } from "@vueuse/core";
 import type { PlotImageApi, ExportTrace } from "@/types/plot";
 import type { Annotation, Layout, Config, Shape } from "plotly.js";
 import AreaReadout from "@/components/dataset/AreaReadout.vue";
 import PanelHeader from "@/components/dataset/PanelHeader.vue";
 import { useDatasetStore } from "@/stores/dataset";
-import { wrapPlotTitle } from "@/utils/plotTitle";
+import { wrapPlotTitle, wrapPlotLabel } from "@/utils/plotTitle";
 import { PLOT_COLORS } from "@/utils/colors";
 import {
   axisYears,
@@ -189,6 +194,11 @@ const Plotly = defineAsyncComponent(
 );
 
 const datasetStore = useDatasetStore();
+const plotShell = ref<HTMLElement | null>(null);
+const { width: plotWidth } = useElementSize(plotShell);
+const compactPlot = computed(
+  () => plotWidth.value > 0 && plotWidth.value < 480,
+);
 
 // Local state
 const localTemporalRangeMin = ref(1);
@@ -314,6 +324,7 @@ const AXIS_TITLE_SIZE = 14;
 const Y_TITLE_LINE_HEIGHT = 20;
 const MARGIN_LEFT = Y_TICK_LABELS_WIDTH + 2 * Y_TITLE_LINE_HEIGHT + 4;
 const MARGIN_RIGHT = 80;
+const COMPACT_TOOLBAR_HEIGHT = 104;
 // The longest title kept on one line. It fits the plot's minimum height
 // (.time-series), and longer titles wrap in two halves that do too.
 const Y_TITLE_MAX_LINE_LENGTH = 44;
@@ -335,11 +346,43 @@ const yAxisTitleAnnotation = computed<Partial<Annotation>>(() => ({
   showarrow: false,
 }));
 
+const compactTitle = computed(() =>
+  wrapPlotLabel(
+    yAxisTitle.value ?? "",
+    Math.max(18, Math.floor(plotWidth.value / 8)),
+  ),
+);
+
 const layoutMetadata = computed<Partial<Layout>>(() => ({
   autosize: true,
-  margin: { l: MARGIN_LEFT, r: MARGIN_RIGHT, b: 60, t: 10, pad: 2 },
+  margin: compactPlot.value
+    ? {
+        l: 48,
+        r: 12,
+        b: 52,
+        t:
+          COMPACT_TOOLBAR_HEIGHT +
+          compactTitle.value.split("<br>").length * 20 +
+          (hasMultipleTimeSeries.value ? 56 : 24),
+        pad: 2,
+      }
+    : { l: MARGIN_LEFT, r: MARGIN_RIGHT, b: 60, t: 10, pad: 2 },
+  title: compactPlot.value
+    ? {
+        text: compactTitle.value,
+        font: { size: AXIS_TITLE_SIZE },
+        x: 0.5,
+        xanchor: "center",
+        y: 0.98,
+        yanchor: "top",
+        pad: { t: COMPACT_TOOLBAR_HEIGHT },
+        automargin: true,
+      }
+    : undefined,
   showlegend: hasMultipleTimeSeries.value,
-  legend: { x: 1, y: 0.5 },
+  legend: compactPlot.value
+    ? { orientation: "h", x: 0, y: 1.02, xanchor: "left", yanchor: "bottom" }
+    : { x: 1, y: 0.5 },
   xaxis: {
     title: { text: temporalLabels.value.axis, font: { size: AXIS_TITLE_SIZE } },
     range: [temporalRangeMin.value, temporalRangeMax.value],
@@ -349,19 +392,22 @@ const layoutMetadata = computed<Partial<Layout>>(() => ({
     linewidth: 3,
     gridwidth: 3,
     automargin: true,
+    ...(compactPlot.value ? { nticks: 4, tickangle: 0 } : {}),
   },
   yaxis: {
     linewidth: 3,
     gridwidth: 3,
+    automargin: compactPlot.value,
   },
   font: { size: 14 },
   // In trace order: the first series, then Smoothed.
   colorway: [PLOT_COLORS.main, PLOT_COLORS.plotAccent],
-  annotations: [yAxisTitleAnnotation.value],
+  annotations: compactPlot.value ? [] : [yAxisTitleAnnotation.value],
 }));
 
 const options = computed<Partial<Config>>(() => ({
   displaylogo: false,
+  displayModeBar: compactPlot.value ? true : "hover",
   modeBarButtonsToRemove: ["toImage"],
 }));
 
@@ -567,6 +613,44 @@ watch(
   min-width: 0;
 }
 
+/* The always-visible narrow toolbar gets its own band above the value title. */
+.time-series-card--compact {
+  --plot-min-height: 520px;
+}
+
+.time-series-card--compact .js-plotly-plot .plotly .modebar {
+  display: flex;
+  flex-wrap: wrap;
+  width: 100%;
+  right: 0;
+}
+
+.time-series-card--compact .js-plotly-plot .plotly .modebar-group {
+  display: contents;
+}
+
+.time-series-card--compact .js-plotly-plot .plotly .modebar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+}
+
+.time-series-card--compact .js-plotly-plot .plotly .modebar-btn svg {
+  position: static;
+}
+
+.time-series-card--compact .js-plotly-plot .plotly .modebar-btn path {
+  /* Plotly assigns translucent fills inline; keep persistent tools legible. */
+  fill: rgb(var(--v-theme-muted)) !important;
+}
+
+.time-series-card--compact .js-plotly-plot .plotly .modebar-btn.active path {
+  fill: rgb(var(--v-theme-primary)) !important;
+}
+
 /* The fields reserve validation space below their 40px inputs. Center the
    readout on the inputs rather than the taller form, including that space. */
 .time-series-card > .panel-header.time-series-header {
@@ -685,6 +769,12 @@ watch(
 }
 
 @media (max-width: 599px) {
+  .time-series-range-field {
+    flex: 1 1 calc(50% - 4px);
+    width: auto;
+    min-width: 0;
+  }
+
   .time-series-range > .v-btn {
     min-width: 44px;
     min-height: 44px;

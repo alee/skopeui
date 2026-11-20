@@ -94,6 +94,7 @@
         />
       </div>
     </v-card-text>
+    <div ref="attributionContainer" class="map-attribution" />
     <slot name="footer" />
   </v-card>
 </template>
@@ -141,6 +142,7 @@ const defaultBaseLayer = mapBaseLayers.find(
   (layer) => layer.id === DEFAULT_BASEMAP_ID,
 );
 const mapContainer = ref<HTMLElement | null>(null);
+const attributionContainer = ref<HTMLElement | null>(null);
 const isStepLoading = ref(false);
 const metadata = computed(() => datasetStore.metadata);
 const currentStep = computed(() =>
@@ -207,6 +209,7 @@ const drawing = createStudyAreaController({
   },
 });
 const scene = createMapScene({
+  attributionContainer: () => attributionContainer.value,
   baseLayers: mapBaseLayers,
   metadata: () => metadata.value,
   selectedBaseLayerId: () => selectedBaseLayerId.value,
@@ -390,7 +393,12 @@ watch(cogBaseUrl, () => raster.reset(props.step));
   }
 
   .map-frame {
-    min-height: 380px;
+    min-height: 480px;
+  }
+
+  :deep(.maplibregl-ctrl-group button) {
+    width: 44px;
+    height: 44px;
   }
 }
 
@@ -398,8 +406,24 @@ watch(cogBaseUrl, () => raster.reset(props.step));
   margin-top: 8px;
 }
 
-:deep(.mapboxgl-ctrl-draw-btn) {
-  min-width: 28px;
+.map-attribution {
+  flex: 0 0 auto;
+  padding: 0 16px 12px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.map-attribution :deep(.maplibregl-ctrl-attrib) {
+  margin: 0;
+  float: none;
+  padding: 0;
+  background: transparent;
+  overflow-wrap: anywhere;
+}
+
+.map-attribution :deep(a) {
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 :deep(.skope-colorbar) {

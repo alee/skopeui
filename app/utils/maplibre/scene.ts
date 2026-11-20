@@ -11,6 +11,7 @@ import { mapExtentPolygon } from "./geometry";
 import { MAP_COLORS } from "@/utils/colors";
 
 interface SceneOptions {
+  attributionContainer: () => HTMLElement | null;
   baseLayers: readonly BasemapLayer[];
   metadata: () => Dataset | null;
   selectedBaseLayerId: () => string;
@@ -23,6 +24,8 @@ export function createMapScene(options: SceneOptions) {
   let map: maplibregl.Map | null = null;
   let isMapLoaded = false;
   let basemapControl: HTMLElement | null = null;
+  let attribution: maplibregl.AttributionControl | null = null;
+  let resizeObserver: ResizeObserver | null = null;
   function applyBaseLayerSelection(baseLayerIdValue: string) {
     if (!map || !isMapLoaded) return;
     for (const provider of options.baseLayers) {
@@ -78,6 +81,7 @@ export function createMapScene(options: SceneOptions) {
     const viewport = getInitialMapViewport(options.metadata());
     map = new maplibregl.Map({
       container,
+      attributionControl: false,
       style: createBasemapStyle(
         options.baseLayers,
         options.selectedBaseLayerId(),
@@ -90,6 +94,20 @@ export function createMapScene(options: SceneOptions) {
             zoom: viewport.zoom,
           }),
     });
+    // Keep full provider credits in normal flow, where they cannot cover map
+    // controls. Use the control's lifecycle so source changes still update it.
+    const credits = new maplibregl.AttributionControl({
+      compact: false,
+      customAttribution:
+        '<a href="https://maplibre.org/" target="_blank">MapLibre</a>',
+    });
+    const creditsContainer = options.attributionContainer();
+    if (creditsContainer) {
+      attribution = credits;
+      creditsContainer.append(credits.onAdd(map));
+    } else {
+      map.addControl(credits);
+    }
     map.addControl(
       new maplibregl.NavigationControl({ showCompass: false }),
       "top-right",
@@ -112,10 +130,18 @@ export function createMapScene(options: SceneOptions) {
     );
     map.addControl(new maplibregl.ScaleControl(), "bottom-right");
     map.on("load", handleLoad);
+    if (typeof ResizeObserver !== "undefined") {
+      resizeObserver = new ResizeObserver(() => map?.resize());
+      resizeObserver.observe(container);
+    }
   }
 
   function dispose() {
+    resizeObserver?.disconnect();
+    resizeObserver = null;
     options.beforeRemove();
+    attribution?.onRemove();
+    attribution = null;
     isMapLoaded = false;
     map?.off("load", handleLoad);
     map?.remove();

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { wrapPlotTitle } from "@/utils/plotTitle";
+import { wrapPlotTitle, wrapPlotLabel } from "@/utils/plotTitle";
 
 describe("wrapPlotTitle", () => {
   it("keeps a short title on one line", () => {
@@ -20,5 +20,21 @@ describe("wrapPlotTitle", () => {
 
   it("keeps a long title with no space on one line", () => {
     expect(wrapPlotTitle("a".repeat(50), 44)).toBe("a".repeat(50));
+  });
+});
+
+describe("narrow plot labels", () => {
+  it("wraps the value title into lines that fit the available width", () => {
+    const title = "Annual (Jan–Dec) Precipitation (mm)";
+    const lines = wrapPlotLabel(title, 20).split("<br>");
+    expect(lines.join(" ")).toBe(title);
+    expect(lines.every((line) => line.length <= 20)).toBe(true);
+  });
+
+  it("preserves long identifiers while breaking them to fit", () => {
+    const title = "X".repeat(70);
+    const lines = wrapPlotLabel(title, 20).split("<br>");
+    expect(lines.join("")).toBe(title);
+    expect(lines.every((line) => line.length <= 20)).toBe(true);
   });
 });
