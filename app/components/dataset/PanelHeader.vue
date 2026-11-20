@@ -13,13 +13,11 @@
   display: flex;
   flex: 0 0 auto;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: var(--panel-header-align, center);
   justify-content: space-between;
   gap: 8px 12px;
-  /* Border-box: 64px with the border, whether it holds the readout or the
-     40px range fields, leaving room above the fields' floating labels. The
-     padding keeps wrapped rows off the edges. */
-  min-height: 64px;
+  /* Side-by-side panels can also reserve the fields' validation space. */
+  min-height: var(--panel-header-min-height, 64px);
   padding: 8px 16px;
   border-bottom: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
 }

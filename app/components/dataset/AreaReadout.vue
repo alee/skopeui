@@ -1,7 +1,12 @@
 <template>
   <v-tooltip v-if="numberOfCells > 0" location="bottom" :text="TOOLTIP">
     <template #activator="{ props: tooltipProps }">
-      <span v-bind="tooltipProps" class="area-readout" data-test="area-readout">
+      <span
+        v-bind="tooltipProps"
+        tabindex="0"
+        class="area-readout"
+        data-test="area-readout"
+      >
         {{ label }}
       </span>
     </template>
@@ -37,11 +42,22 @@ const label = computed(() => {
 
 <style scoped>
 .area-readout {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  max-width: 100%;
   background-color: rgb(var(--v-theme-panel));
   border-radius: 4px;
   font-size: 1rem;
   font-weight: 300;
   padding: 6px 10px;
-  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.area-readout:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 2px;
 }
 </style>

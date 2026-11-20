@@ -651,16 +651,19 @@ watch(
   fill: rgb(var(--v-theme-primary)) !important;
 }
 
-/* The fields reserve validation space below their 40px inputs. Center the
-   readout on the inputs rather than the taller form, including that space. */
-.time-series-card > .panel-header.time-series-header {
-  align-items: flex-start;
+.time-series-card .js-plotly-plot .plotly .modebar:focus-within,
+.time-series-card .js-plotly-plot .plotly .modebar:focus-within .modebar-group {
+  opacity: 1;
 }
 
-.time-series-header .area-readout {
-  display: inline-flex;
-  align-items: center;
-  min-height: 40px;
+.time-series-card .js-plotly-plot .plotly .modebar-btn:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: -2px;
+}
+
+/* Align controls at their inputs; the fields reserve validation space below. */
+.time-series-card > .panel-header.time-series-header {
+  align-items: flex-start;
 }
 
 .time-series-range {

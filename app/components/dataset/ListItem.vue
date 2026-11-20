@@ -20,12 +20,12 @@
     <v-col cols="12" md="8" class="list-item-info-col d-flex">
       <v-card elevation="0" class="list-item-info">
         <v-card-title class="ma-0 pa-0">
-          <div class="text-h6">
+          <h2 class="text-h6 list-item-heading">
             <NuxtLink :to="absoluteUrl" class="dataset-title">
               {{ dataset.title }}
             </NuxtLink>
             <MetadataModal :metadata-id="dataset.id" />
-          </div>
+          </h2>
           <div class="list-item-coverage">
             {{ spatialCoverage }} | {{ temporalCoverage }}
           </div>
@@ -72,6 +72,11 @@ const sourceLink = computed(() =>
 const absoluteUrl = computed(() => `/dataset/${props.dataset.id}`);
 </script>
 <style scoped>
+.list-item-heading {
+  margin: 0;
+  font: inherit;
+}
+
 /* An underline that becomes a highlight on hover, in the theme's accent. */
 .dataset-title {
   padding: 0 6px;

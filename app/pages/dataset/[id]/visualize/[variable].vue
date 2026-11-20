@@ -270,6 +270,14 @@ function pauseWhenHidden() {
   min-height: calc(100vh - 250px);
 }
 
+@media (min-width: 1200px) {
+  .map-flex {
+    /* Field + validation + padding + border: match the plot's natural height. */
+    --panel-header-min-height: 93px;
+    --panel-header-align: flex-start;
+  }
+}
+
 @media all and (max-width: 960px) {
   .map-flex {
     min-height: 450px;
