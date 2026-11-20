@@ -26,14 +26,15 @@ including Vue scripts, templates, and TypeScript tests. Use `make typecheck` to
 run only the type check. Nuxt manages the application, server, shared, and build
 configuration types through project references in `app/tsconfig.json`. Use `make lint` to run ESLint with automatic fixes, or `make format` to format files and apply ESLint fixes; both commands can modify source files.
 
-After pulling dependency changes, recreate the development container and its anonymous `/code/node_modules` volume so it uses the rebuilt image's dependencies:
-
-```bash
-make down ENVIRONMENT=dev
-make deploy-dev
-```
+After pulling dependency changes, run `make deploy-dev` again. Development deploys
+rebuild the image and recreate the container with a fresh disposable
+`/code/node_modules` volume, so dependencies match the lockfile. Source files
+remain bind-mounted for live editing. There is no need to run `make down` first.
 
 Include your `SKOPE_API_HOST_URL` override again if you use a custom API endpoint.
+`make restart` only restarts the existing container; use `make deploy-dev` when
+dependencies change. Staging and production use dependencies baked into their
+images and do not renew development volumes.
 
 ## Deployment
 

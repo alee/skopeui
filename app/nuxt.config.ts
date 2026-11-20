@@ -100,6 +100,29 @@ export default defineNuxtConfig({
   },
 
   vite: {
+    // Routes and client-only components hide some imports from the initial scan.
+    // Bundle them up front so exploring pages or reporting a bug doesn't reload.
+    optimizeDeps: {
+      include: [
+        "@geoman-io/maplibre-geoman-free",
+        "@sentry/nuxt",
+        "@turf/turf",
+        "@vue/devtools-core",
+        "@vueuse/core",
+        "ajv/dist/2020",
+        "file-saver",
+        "jszip",
+        "maplibre-gl",
+        "markdown-it",
+        "markdown-it-attrs",
+        "markdown-it-div",
+        "mathjs",
+        "papaparse",
+        "plotly.js/lib/core",
+        "plotly.js/lib/scatter",
+        "sanitize-html",
+      ],
+    },
     build: {
       cssMinify: "lightningcss",
     },

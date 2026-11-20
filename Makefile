@@ -64,7 +64,7 @@ buildprod: override ENVIRONMENT=prod
 buildprod: build
 
 deploy: build ##- Deploy ENVIRONMENT (defaults to dev) and wait for a healthy service
-	$(COMPOSE) up -d --remove-orphans --wait --wait-timeout 120
+	$(COMPOSE) up -d --remove-orphans $(if $(filter dev,$(ENVIRONMENT)),--force-recreate --renew-anon-volumes) --wait --wait-timeout 120
 
 deploy-dev: override ENVIRONMENT=dev
 deploy-dev: deploy ##- Build and deploy the local development environment
