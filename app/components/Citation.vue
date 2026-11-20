@@ -1,6 +1,11 @@
 <template>
   <client-only>
-    <v-dialog v-model="showCitation" width="auto">
+    <v-dialog
+      v-model="showCitation"
+      scrollable
+      :aria-labelledby="titleId"
+      max-width="800"
+    >
       <template #activator="{ props }">
         <v-btn
           style="font-weight: bold"
@@ -13,7 +18,17 @@
         </v-btn>
       </template>
       <v-card>
-        <v-card-title><h2>How to Cite SKOPE</h2></v-card-title>
+        <v-card-title class="d-flex align-center ga-2">
+          <h2 :id="titleId" class="text-wrap">How to Cite SKOPE</h2>
+          <v-spacer />
+          <v-btn
+            icon="mdi-close"
+            class="flex-shrink-0"
+            variant="text"
+            aria-label="Close citation"
+            @click="showCitation = false"
+          />
+        </v-card-title>
         <v-card-text>
           <h2>Citation</h2>
           <p class="text-body-1 px-2">
@@ -23,22 +38,8 @@
             itself.
           </p>
 
-          <h2>Example Citation (click text to copy)</h2>
-          <v-textarea
-            v-model="citationText"
-            class="blockquote"
-            readonly
-            no-resize
-            @click="copyToClipboard"
-          />
-          <h2>BibTeX (click text to copy)</h2>
-          <v-textarea
-            v-model="citationBibTex"
-            class="blockquote"
-            readonly
-            no-resize
-            @click="copyToClipboard"
-          />
+          <CitationText label="Example citation" :text="citationText" />
+          <CitationText label="BibTeX" :text="citationBibTex" />
 
           <h2>Contact us</h2>
           <p class="text-body-1 px-2">
@@ -48,30 +49,17 @@
               skope-team@googlegroups.com
             </a>
           </p>
-          <v-snackbar v-model="clipboardMessage" timeout="6000">
-            <p class="text-center">
-              Citation text copied to clipboard. Use <kbd>Ctrl + V</kbd> to
-              paste.
-            </p>
-          </v-snackbar>
         </v-card-text>
       </v-card>
     </v-dialog>
   </client-only>
 </template>
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, useId } from "vue";
+import CitationText from "@/components/CitationText.vue";
 import citationText from "@/generated/citation.txt?raw";
 import citationBibTex from "@/generated/citation.bib?raw";
 
 const showCitation = ref(false);
-const clipboardMessage = ref(false);
-
-function copyToClipboard(evt: MouseEvent) {
-  const srcElement = evt.target as HTMLTextAreaElement;
-  navigator.clipboard.writeText(srcElement.value).then(() => {
-    srcElement.select();
-    clipboardMessage.value = true;
-  });
-}
+const titleId = useId();
 </script>

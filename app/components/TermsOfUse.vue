@@ -1,6 +1,12 @@
 <template>
   <client-only>
-    <v-dialog v-model="showTerms" persistent max-width="600">
+    <v-dialog
+      v-model="showTerms"
+      scrollable
+      :aria-labelledby="titleId"
+      persistent
+      max-width="600"
+    >
       <template #activator="{ props }">
         <v-btn
           style="font-weight: bold"
@@ -13,7 +19,7 @@
         </v-btn>
       </template>
       <v-card>
-        <v-card-title><h2>Terms of Use</h2></v-card-title>
+        <v-card-title><h2 :id="titleId">Terms of Use</h2></v-card-title>
         <v-card-text>
           <p class="text-body-1">
             By using the SKOPE application, you assume any risk associated with
@@ -30,22 +36,8 @@
             itself.
           </p>
 
-          <h2>Example Citation (click text to copy)</h2>
-          <v-textarea
-            v-model="citationText"
-            class="blockquote"
-            readonly
-            no-resize
-            @click="copyToClipboard"
-          />
-          <h2>BibTeX (click text to copy)</h2>
-          <v-textarea
-            v-model="citationBibTex"
-            class="blockquote"
-            readonly
-            no-resize
-            @click="copyToClipboard"
-          />
+          <CitationText label="Example citation" :text="citationText" />
+          <CitationText label="BibTeX" :text="citationBibTex" />
 
           <h2>Contact us</h2>
           <p class="text-body-1">
@@ -75,7 +67,8 @@
   </client-only>
 </template>
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, onMounted, useId } from "vue";
+import CitationText from "@/components/CitationText.vue";
 import citationText from "@/generated/citation.txt?raw";
 import citationBibTex from "@/generated/citation.bib?raw";
 import { usePersistenceStorage } from "@/composables/usePersistenceStorage";
@@ -84,7 +77,7 @@ const persistenceStorage = usePersistenceStorage();
 const TERMS_KEY = "skope:termsAccepted";
 
 const showTerms = ref(true);
-const clipboardMessage = ref(false);
+const titleId = useId();
 
 onMounted(() => {
   showTerms.value = !persistenceStorage.get(TERMS_KEY);
@@ -97,14 +90,6 @@ function acceptTerms() {
 
 function declineTerms() {
   persistenceStorage.remove(TERMS_KEY);
-}
-
-function copyToClipboard(evt: MouseEvent) {
-  const srcElement = evt.target as HTMLTextAreaElement;
-  navigator.clipboard.writeText(srcElement.value).then(() => {
-    srcElement.select();
-    clipboardMessage.value = true;
-  });
 }
 </script>
 

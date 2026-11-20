@@ -1,5 +1,10 @@
 <template>
-  <v-dialog v-model="showMetadata" max-width="800px">
+  <v-dialog
+    v-model="showMetadata"
+    max-width="800px"
+    scrollable
+    :aria-labelledby="titleId"
+  >
     <template #activator="{ props: dialogProps }">
       <v-tooltip
         location="bottom"
@@ -22,12 +27,16 @@
     </template>
     <v-card>
       <v-card-title class="d-flex align-center bg-secondary">
-        <h3 class="font-weight-light text-wrap text-white">
+        <h2
+          :id="titleId"
+          class="metadata-title font-weight-light text-wrap text-white"
+        >
           {{ metadata?.title ?? "Dataset metadata" }}
-        </h3>
+        </h2>
         <v-spacer />
         <v-btn
           icon
+          class="flex-shrink-0"
           variant="text"
           aria-label="Close"
           @click="showMetadata = false"
@@ -40,12 +49,21 @@
   </v-dialog>
 </template>
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, useId } from "vue";
 import MetadataDetail from "@/components/dataset/MetadataDetail.vue";
 import { useMetadataStore } from "@/stores/metadata";
 
 const props = defineProps<{ metadataId: string }>();
 const showMetadata = ref(false);
+const titleId = useId();
 const metadataStore = useMetadataStore();
 const metadata = computed(() => metadataStore.find(props.metadataId));
 </script>
+
+<style scoped>
+.metadata-title {
+  min-width: 0;
+  font-size: inherit;
+  overflow-wrap: anywhere;
+}
+</style>
