@@ -13,18 +13,7 @@ function mountList(variables: Variable[]) {
     props: { variables },
     global: {
       stubs: {
-        "v-list": { template: "<div><slot /></div>" },
-        "v-list-subheader": { template: "<div><slot /></div>" },
         "v-chip": { template: "<span><slot /></span>" },
-        "v-list-group": {
-          template:
-            '<section class="group"><slot name="activator" :props="{}" /><slot /></section>',
-        },
-        "v-list-item": {
-          props: ["title"],
-          template:
-            '<div class="item"><slot name="prepend" /> {{ title }}</div>',
-        },
       },
     },
   });
@@ -32,8 +21,8 @@ function mountList(variables: Variable[]) {
 
 function groupSummaries(wrapper: ReturnType<typeof mountList>) {
   return wrapper
-    .findAll(".group")
-    .map((group) => group.find(".item").text().replace(/\s+/g, " "));
+    .findAll("details")
+    .map((group) => group.find("summary").text().replace(/\s+/g, " "));
 }
 
 describe("VariableList", () => {
@@ -48,7 +37,10 @@ describe("VariableList", () => {
       "Precipitation 2 variables",
       "Growing Degree Days 1 variable",
     ]);
-    expect(wrapper.findAll(".group")[0]!.text()).toContain(
+    expect(
+      wrapper.findAll("details").every((group) => !group.element.open),
+    ).toBe(true);
+    expect(wrapper.findAll("details")[0]!.text()).toContain(
       "Title of ppt_may_sept",
     );
   });

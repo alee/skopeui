@@ -1,31 +1,21 @@
 <template>
-  <v-list density="compact" class="pa-0 ma-0">
-    <v-list-subheader class="text-h6 ma-0 pa-0">Variables</v-list-subheader>
-    <v-list-group
-      v-for="group in groups"
-      :key="group.category"
-      :value="group.category"
-    >
-      <template #activator="{ props: activator }">
-        <v-list-item
-          v-bind="activator"
-          class="variable-group"
-          :title="variableCount(group.variables.length)"
-        >
-          <template #prepend>
-            <v-chip size="small" label color="primary" class="mr-2">
-              {{ group.category }}
-            </v-chip>
-          </template>
-        </v-list-item>
-      </template>
-      <v-list-item
-        v-for="variable in group.variables"
-        :key="variable.id"
-        :title="variable.title"
-      />
-    </v-list-group>
-  </v-list>
+  <section>
+    <h3 class="text-h6">Variables</h3>
+    <details v-for="group in groups" :key="group.category">
+      <summary class="variable-group">
+        <v-chip size="small" label color="primary">{{ group.category }}</v-chip>
+        {{ " "
+        }}<span class="variable-count">{{
+          variableCount(group.variables.length)
+        }}</span>
+      </summary>
+      <ul class="variable-titles">
+        <li v-for="variable in group.variables" :key="variable.id">
+          {{ variable.title }}
+        </li>
+      </ul>
+    </details>
+  </section>
 </template>
 
 <script setup lang="ts">
@@ -65,28 +55,43 @@ function variableCount(count: number) {
 </script>
 
 <style scoped>
-@media (max-width: 599px) {
-  .variable-group {
-    grid-template-areas:
-      "prepend append"
-      "content content";
-    grid-template-columns: minmax(0, 1fr) auto;
-    row-gap: 4px;
-    padding-block: 8px;
-  }
+.variable-group {
+  min-height: 44px;
+  padding: 8px 16px;
+  cursor: pointer;
+}
 
-  .variable-group :deep(.v-list-item__spacer) {
-    display: none;
-  }
+.variable-group > * {
+  margin-inline-start: 8px;
+}
 
-  .variable-group :deep(.v-chip) {
-    height: auto;
-    min-height: 24px;
-  }
+.variable-count {
+  display: inline-block;
+}
 
-  .variable-group :deep(.v-chip__content) {
-    white-space: normal;
-    overflow-wrap: anywhere;
-  }
+.variable-group :deep(.v-chip) {
+  height: auto;
+  min-height: 24px;
+  max-width: 100%;
+  vertical-align: middle;
+}
+
+.variable-group :deep(.v-chip__content) {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.variable-group:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: -2px;
+}
+
+.variable-titles {
+  padding: 4px 24px 12px 48px;
+  overflow-wrap: anywhere;
+}
+
+.variable-titles li {
+  padding-block: 4px;
 }
 </style>
