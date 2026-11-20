@@ -1,6 +1,6 @@
 <template>
   <v-card variant="outlined" class="time-series-card">
-    <PanelHeader>
+    <PanelHeader class="time-series-header">
       <AreaReadout v-if="showArea" />
       <v-form
         ref="temporalRangeForm"
@@ -596,6 +596,18 @@ watch(
   flex-direction: column;
   width: 100%;
   min-width: 0;
+}
+
+/* The fields reserve validation space below their 40px inputs. Center the
+   readout on the inputs rather than the taller form, including that space. */
+.time-series-card > .panel-header.time-series-header {
+  align-items: flex-start;
+}
+
+.time-series-header .area-readout {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
 }
 
 .time-series-range {
