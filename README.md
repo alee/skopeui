@@ -60,7 +60,7 @@ is supported; missing, malformed, empty, or multiple study features return HTTP
 
 ## Deployment
 
-Science-team members and end users follow the
+Science team members and end users follow the
 [staging functional test plan](docs/staging-functional-test-plan.md).
 Maintainers prepare and verify deployments with the separate
 [engineering checklist](docs/staging-maintainer-checklist.md), and attach its

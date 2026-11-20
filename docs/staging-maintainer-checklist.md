@@ -1,6 +1,6 @@
 # Staging deployment and recovery verification
 
-For maintainers and engineering testers only. Science-team members and end users
+For maintainers and engineering testers only. Science team members and end users
 should use the [staging functional test plan](staging-functional-test-plan.md).
 
 Use this checklist after deploying coordinated UI and API changes, before
@@ -31,7 +31,7 @@ contract is in `skope-api/docs/specs/recoverable-extraction-jobs-v1.md`.
 ## Running with a coding agent
 
 This is an engineering checklist suitable for a supervised agent with browser,
-API and test-environment access. The science-team guide is a separate acceptance
+API and test-environment access. The science team guide is a separate acceptance
 exercise. Before an unattended run, provide the environment URL, allowed actions,
 fixtures, access to logs, independently established expectations and tolerances,
 and a place to save evidence.
@@ -44,7 +44,7 @@ methods, limitations and conclusions are appropriate.
 
 Worker termination, capacity saturation, response interception and release/expiry
 mutation require an isolated environment and explicit authorization for that run.
-Permission to use shared staging or run the science-team guide is not permission
+Permission to use shared staging or run the science team guide is not permission
 to disrupt other testers. Stop dependent checks if preparation fails, report the
 blocker and retain evidence. Record pass/fail/not run separately for each check.
 

@@ -1,135 +1,176 @@
 # Try SKOPE on staging
 
-This guide is for science-team members and other users who know the datasets
-and can judge whether the results make scientific sense. You do not need access
-to deployment tools, server logs, browser developer tools, or version numbers.
+This guide is for science team members and other users who know the datasets
+and can judge whether the results make scientific sense. Allow 20–30 minutes
+for the main walkthrough. Comparing results with independent calculations may
+need a separate session.
 
-Use the staging link supplied with your invitation. Staging is a testing site;
-save any downloads you want to keep. Start with a small area and a dataset you
-know well. Allow about 20–30 minutes for the main checks; the scientific
-comparison can take longer if you need to prepare reference values.
+Open [staging.openskope.org](https://staging.openskope.org). Start with a small
+area and a dataset you know well. Staging is a testing site; save downloads you
+want to keep.
 
-## Before you begin
+## What to record
 
-The testing coordinator should supply:
+Mark each numbered check **works**, **problem**, or **not checked**. If you
+cannot reach a check because an earlier step failed, mark it **not checked**
+and say what blocked it. Report unclear labels, missing scientific context and
+unexpected results as well as broken controls.
 
-- The staging link and which datasets or changes need attention.
-- At least one scientific comparison case: a precise study area, variable,
-  dates, analysis settings, independently checked expected values, and an
-  acceptable numerical tolerance. Tell testers where those values came from.
-- Any known limitations, and who to contact if the whole site is unavailable.
+Use **Report a bug** in the top bar while you are still on the page with the
+problem. Describe what you expected, what happened, and how to repeat it.
+Technical details are collected for you. Keep the report reference shown after
+sending; you do not need to find version numbers or use browser developer tools.
 
-If a reference case is unavailable, you can still test the workflow and use your
-scientific judgment. Mark the numerical comparison **not checked**; a plausible
-plot is not proof that the calculation is correct.
+## Before inviting the science team
+
+The coordinator should provide the datasets or changes that need attention,
+known limitations, and a contact for a site outage. For numerical checks, supply
+at least one comparison case with the following information:
+
+```text
+Case name:
+Dataset and variable:
+Study area: exact longitude/latitude (WGS84) or a supplied boundary file
+Dates and calendar convention:
+Spatial statistic: mean / median / point value
+Transformation and reference period, if any:
+Smoothing method and window, if any:
+Reference source and how the expected values were checked:
+How cells at the area boundary and missing values were handled:
+Expected values at named dates, with units:
+Expected summary statistics, if checked:
+Acceptable difference: absolute and/or relative tolerance
+```
+
+Agree on the reference and tolerance before comparing results. A roughly
+similar area drawn by hand may include different cells and give different values.
+If a reference case is unavailable, continue the walkthrough and mark numerical
+comparisons **not checked**. A plausible plot alone does not establish accuracy.
 
 ## Walk through a familiar dataset
 
-For each step, record **works**, **problem**, or **not checked**. If something
-looks wrong, use **Report a bug** while you are still on that page. Explain what
-you expected, what actually happened, and how to repeat it. Technical details
-are collected for you; you do not need to find commits or image IDs.
+Change one setting at a time and wait for the result before continuing, except
+when a check specifically asks you to change something while it is loading.
 
-### Find the right data
+### Find and visualize
 
-1. Browse or search for a familiar dataset. Try a filter you would normally use.
-   **Look for:** relevant results and clear dataset names and descriptions.
-2. Open the dataset and read its variables, units, dates, sources, and limitations.
-   **Look for:** information that agrees with your understanding of the data.
-   Report misleading labels or missing scientific context as well as broken controls.
-
-### Explore an area
-
-3. Draw or select a small study area, then open **Visualize**.
-   **Look for:** the intended area, a readable map and legend, and a time series.
-4. Change the variable or displayed date where available. Pan and zoom the map.
-   **Look for:** the map, legend, dates, and units changing together. Known spatial
-   patterns should be recognizable. Missing coverage should not look like zero.
-5. Change the study area and move between **Visualize** and **Analyze**.
-   **Look for:** results describing the current selection, with no old area's
-   values appearing under the new area's labels. Navigation should feel coherent.
+1. **Find a dataset.** Browse or search, then try a filter you would normally use.
+   Open the dataset information and inspect variables, units, dates, sources,
+   license and limitations. Results and descriptions should match your search
+   and your understanding of the data.
+2. **Select a small area and open Visualize.** Confirm the intended location,
+   readable legend, variable, units and time series. Check whether familiar
+   spatial patterns are recognizable. Missing coverage should not look like zero.
+3. **Explore dates and variables.** Step through a few dates, including the first
+   and last available dates. Try play and pause if animation is available. The
+   displayed map and selected date should agree once loading finishes. Change
+   the variable where available and check its name, units and legend.
+4. **Change the study area.** Use **Edit study area**, choose a visibly different
+   location, and return to Visualize. Then open Analyze. Confirm the area and
+   results describe the new selection. Different areas can have the same values;
+   equality alone does not prove that an old result was reused.
 
 ### Analyze and download
 
-6. On **Analyze**, start with the original, unsmoothed series. Compare the plot
-   and summary statistics with your scientific comparison case below.
-7. Try the spatial mean and median, then an analysis option you actually use,
-   such as a moving average or standardized values. Change the time interval.
-   **Look for:** understandable controls, correct labels and reference periods,
-   and results consistent with the selected method. It is valid for mean and
-   median to differ; neither is always larger.
-8. Download the result and open the numeric file and plot image.
-   **Look for:** correct dataset, variable, units, dates, and analysis choices.
-   Numeric values should agree with the plotted series, allowing for display
-   rounding. Numeric files contain the selected interval; plot images preserve
-   the current zoom, so zooming does not remove rows from the numeric export.
-9. Change an analysis option and try downloading while the result is updating.
-   **Look for:** Download becoming available only after the current analysis
-   succeeds, so you cannot accidentally export an older result as the new one.
+5. **Inspect the original series.** On Analyze, start with no transformation or
+   smoothing. If using a reference case, first restore its exact area, variable,
+   dates and spatial statistic. Compare several named dates and the summary
+   statistics with the reference. Check units, sign, magnitude and date order.
+6. **Try an analysis you use.** For an area, try spatial mean and median
+   separately, clicking **Update** after each change; this control is unavailable
+   for a point. Then try a familiar transformation or smoothing method and click
+   **Update**. Check the displayed result and its labels against your selected
+   method, window and reference period. Mean and median may differ; neither is
+   always larger.
+7. **Change the interval.** Use **From**, **To** and **Apply** to select a shorter
+   interval. Check the dates shown and the statistics for that interval. Values
+   at overlapping dates should stay the same for the original unsmoothed series.
+   For transformed or smoothed series, use the comparison guidance below.
+8. **Download and inspect the result.** Open the ZIP, numeric file and plot image.
+   Confirm the dataset, variable, units, dates and analysis choices. Compare a few
+   numeric values with the plot, allowing for display rounding. Numeric files
+   contain the selected interval; plot images preserve the current zoom, so
+   zooming does not remove rows from the numeric export.
+9. **Download after a change.** Change an analysis setting and click **Update**.
+   While it is loading, Download should be unavailable. After success, download
+   again and check that it describes the new result. If the update fails, report
+   whether the displayed result and available actions are understandable.
+   If the update finishes too quickly to check the loading state, mark that part
+   **not checked**.
 
-## Check scientific results
+## Compare scientific results
 
-Use the supplied comparison case with the exact same study area, dates and
-settings. Record the expected and observed values and the tolerance used.
+Use the supplied case with exactly the same area, dates and settings. Record
+expected and observed values and the tolerance used. These are focused checks
+of SKOPE's results; they do not establish the validity of the source dataset.
 
-- **Values and units:** compare several named dates, including the beginning
-  and end of the interval. Check sign, magnitude, units and chronological order.
-- **Spatial statistics:** compare mean and median against calculations from the
-  underlying selected raster cells. A map color is not a numeric reference.
-  Check how cells at the study-area boundary are selected in the reference case.
+- **Spatial statistics:** compare mean and median with independent calculations
+  from the selected raster cells, using the same boundary convention and missing
+  data treatment. A map color is not a numeric reference.
 - **Summary statistics:** independently check a short unsmoothed series. Missing
   values must not become zeros. SKOPE uses population standard deviation.
-- **Analysis methods:** for methods you know, check the window length, reference
-  period and edge behavior against the agreed reference. A fixed-reference
-  z-score uses that reference period's mean and population standard deviation;
-  a constant or missing reference can make it undefined.
-- **Range changes:** untransformed values at overlapping dates should stay the
-  same when you narrow the interval. For transformed values, keep the method,
-  smoothing settings and explicit reference period fixed when comparing.
+- **Analysis methods:** check window length, reference period and behavior at
+  the ends of the series against the agreed reference. A fixed reference z-score
+  uses that period's mean and population standard deviation; a constant or
+  missing reference can make it undefined.
+- **Range changes:** keep the method, window and explicit reference period fixed
+  when comparing transformed values. Changes in the available context for
+  smoothing can affect values near the ends; use the reference case to judge
+  whether those differences are expected.
 - **Missing data:** where a known gap exists, confirm the plot, summary and export
-  handle it consistently. Smoothing edges or undefined transforms can create
-  additional missing values; those need interpretation rather than automatic failure.
+  handle it consistently. Smoothing edges or undefined transforms can introduce
+  additional missing values. Record these separately from gaps in the source.
 
-These are targeted acceptance checks, not a new validation of the entire source
-dataset. Report a scientifically suspicious result even if every control works.
+For each numerical comparison, record:
 
-## Try ordinary interruptions
+```text
+Case and quantity checked (including date or statistic):
+Expected value and units:
+Observed value and units:
+Tolerance:
+Result: agrees / differs / not checked
+Report reference or notes:
+```
 
-These checks are optional. Do not interrupt other testers or try to overload the site.
+Report a scientifically suspicious result even if every control works. If you
+cannot tell whether a difference is expected, record the uncertainty for review.
+
+## Optional checks
 
 - Change your selection while results are loading. The final result should
   describe your latest selection.
-- If you encounter an error, read the message and use Retry if offered. It
-  should explain a useful next step and let you continue when the problem clears.
-- Try a narrower browser window and use the keyboard for a few controls.
-  Note anything unreadable, unreachable or unexpectedly difficult.
+- If an error occurs, read the message and use Retry if offered. Check whether
+  it explains a useful next step and lets you continue when the problem clears.
+- Try a narrow browser window and use the keyboard for a few controls. Check
+  that Report a bug remains visible. User Guide and Contact are in the help menu
+  when the window is too narrow to show them directly.
 
-You do not need to disconnect requests, terminate workers, inspect network
-traffic, or prove how many jobs ran. Maintainers handle those checks separately.
+Do not try to overload the site or interrupt other testers. Maintainers handle
+server failures and recovery checks using the
+[engineering checklist](staging-maintainer-checklist.md).
 
 ## Share your findings
 
-Use **Report a bug** for each distinct problem. Include what you expected,
-what happened, and enough steps to repeat it. For a numerical discrepancy,
-include the reference source, expected value, observed value and tolerance.
-Use a screenshot if it helps, but do not include information you do not want to share.
+Send one bug report per distinct problem. For a numerical discrepancy, include
+the case, reference source, expected and observed values, and tolerance. Attach
+a screenshot if helpful. Review the attached details and leave out the study
+area or screenshot if it contains information you do not want to share.
 
-If reporting from the site fails, keep your notes and use the contact address
-provided by the coordinator or the site's Contact link.
+If sending fails, use **Save a copy** and contact the coordinator or use Contact
+in the top navigation. Keep any screenshot separately. Copy an unsent description
+into your notes before reloading; reloading loses the draft.
 
-A short completion note is enough:
+Send a short completion note, even if everything worked:
 
 ```text
-Name (optional) and date:
-Datasets and variables tried:
-Study area and dates:
-Workflow: works / problem / not checked
-Scientific comparison: agrees / differs / not checked
-Reference used and tolerance:
-Bug report references, or brief notes:
+Name (optional), date and browser:
+Dataset, variables, area and dates tried:
+Checks 1–9: list each as works / problem / not checked
+Scientific comparisons: case names and agrees / differs / not checked
+Report references and any blocked checks:
 Anything confusing or difficult:
 ```
 
-Maintainers prepare the site and run deployment/recovery checks using the
-[engineering checklist](staging-maintainer-checklist.md). Deployment readiness
-and scientific acceptance are recorded separately.
+The coordinator should review workflow problems, scientific discrepancies and
+checks that were not completed separately. Deployment readiness and scientific
+acceptance are recorded separately.
