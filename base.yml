@@ -6,6 +6,7 @@ services:
       args:
         SKOPE_BUILD_ID: ${SKOPE_BUILD_ID:-development}
     environment:
+      NUXT_PUBLIC_SENTRY_DSN: "${NUXT_PUBLIC_SENTRY_DSN-https://9b9dc2f60562380edeb675c39fe1c896@sentry.comses.net/4}"
       NUXT_PUBLIC_API_BASE: ${NUXT_PUBLIC_API_BASE:-http://localhost:8001}
       NUXT_PUBLIC_CARTO_API_KEY: ${NUXT_PUBLIC_CARTO_API_KEY:-}
       NUXT_PUBLIC_STADIA_API_KEY: ${NUXT_PUBLIC_STADIA_API_KEY:-}

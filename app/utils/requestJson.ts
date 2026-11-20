@@ -1,3 +1,5 @@
+import { recordRequestDiagnostic } from "@/utils/requestDiagnostics";
+
 export class RequestFailure extends Error {
   response?: { status: number; data: unknown; retryAfter?: number };
   constructor(
@@ -66,6 +68,9 @@ export async function requestJson<T = unknown>(
       controller.abort();
     }, timeout);
   });
+  let status: number | undefined;
+  let requestId: string | undefined;
+  let errorCode: string | undefined;
   const operation = async () => {
     const headers = new Headers(options.headers);
     if (!headers.has("Content-Type"))
@@ -75,6 +80,12 @@ export async function requestJson<T = unknown>(
       headers,
       signal: controller.signal,
     });
+    status = response.status;
+    const correlationId = response.headers.get("X-Request-ID");
+    requestId =
+      correlationId && /^[0-9a-f]{32}$/.test(correlationId)
+        ? correlationId
+        : undefined;
     checkDeadline();
     if (!response.ok) {
       const data = await response
@@ -104,6 +115,7 @@ export async function requestJson<T = unknown>(
   try {
     return await Promise.race([operation(), interrupted]);
   } catch (error) {
+    errorCode = error instanceof RequestFailure ? error.code : "NETWORK_ERROR";
     if (error instanceof RequestFailure) throw error;
     throw new RequestFailure(
       "NETWORK_ERROR",
@@ -111,6 +123,7 @@ export async function requestJson<T = unknown>(
       { cause: error },
     );
   } finally {
+    recordRequestDiagnostic(url, { status, requestId, errorCode });
     clearTimeout(timer);
     options.signal?.removeEventListener("abort", onAbort);
   }

@@ -60,6 +60,10 @@ export default defineNuxtConfig({
     },
     public: {
       apiBase: "http://localhost:8001",
+      // A Sentry DSN is a public ingestion address, not an account credential.
+      sentryDsn:
+        process.env.NUXT_SENTRY_DSN ||
+        "https://9b9dc2f60562380edeb675c39fe1c896@sentry.comses.net/4",
       gtagId: process.env.NUXT_PUBLIC_GTAG_ID || "G-M0NVBT90BT",
       cartoApiKey: "",
       stadiaApiKey: "",

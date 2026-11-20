@@ -16,6 +16,7 @@
       </span>
       <Citation />
       <TermsOfUse />
+      <BugReport />
       <v-btn
         v-for="link in links"
         :key="link.id"
@@ -46,6 +47,7 @@
 <script setup lang="ts">
 import TermsOfUse from "@/components/TermsOfUse.vue";
 import Citation from "@/components/Citation.vue";
+import BugReport from "@/components/BugReport.vue";
 
 const { buildId } = useAppConfig();
 const github = {

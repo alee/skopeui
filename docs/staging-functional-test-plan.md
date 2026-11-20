@@ -1,126 +1,135 @@
-# Staging functional test plan
+# Try SKOPE on staging
 
-Use this checklist after deploying coordinated UI and API changes, before
-promoting them to production. It covers the browser journey and the extraction
-recovery contract across both services. The automated page checks remain in
-[the page functional test plan](../app/tests/page-functional-test-plan.md).
+This guide is for science-team members and other users who know the datasets
+and can judge whether the results make scientific sense. You do not need access
+to deployment tools, server logs, browser developer tools, or version numbers.
 
-Maintain this plan with changes to the extraction lifecycle. The API's detailed
-contract is in `skope-api/docs/specs/recoverable-extraction-jobs-v1.md`.
+Use the staging link supplied with your invitation. Staging is a testing site;
+save any downloads you want to keep. Start with a small area and a dataset you
+know well. Allow about 20–30 minutes for the main checks; the scientific
+comparison can take longer if you need to prepare reference values.
 
-## Preparation
+## Before you begin
 
-- [ ] Record the exact UI and API commits, deployed image IDs, CI run/attempts
-  where applicable, and served dataset releases in the run record below.
-- [ ] Confirm the applicable automated tests passed. For local builds, record
-  the checks actually run rather than assuming CI covered the resulting images.
-- [ ] Drain existing extraction work before replacing the API. For the initial
-  recoverable-jobs cutover, deploy backend support before the matching UI:
-  the API requires an `Idempotency-Key` header that older clients do not send.
-- [ ] Reload the browser after deploying the UI. Confirm requests use
-  `https://staging-api.openskope.org` and the intended dataset releases.
-- [ ] Open browser DevTools with Network **Preserve log** enabled. Keep API
-  logs available to correlate idempotency keys, job IDs, and actual executions.
-- [ ] Choose a small, valid study area for normal tests. Arrange a controlled
-  proxy/interceptor for response loss and delayed responses. Schedule worker
-  termination and capacity tests when other staging users will not be disrupted.
+The testing coordinator should supply:
 
-Do not reload the tab during recovery tests: submission keys currently live in
-the Pinia session. Reloading begins a new attempt. Use separate fresh attempts
-for tests that change the source or require a terminal job.
+- The staging link and which datasets or changes need attention.
+- At least one scientific comparison case: a precise study area, variable,
+  dates, analysis settings, independently checked expected values, and an
+  acceptable numerical tolerance. Tell testers where those values came from.
+- Any known limitations, and who to contact if the whole site is unavailable.
 
-## Browser journey and recovery
+If a reference case is unavailable, you can still test the workflow and use your
+scientific judgment. Mark the numerical comparison **not checked**; a plausible
+plot is not proof that the calculation is correct.
 
-Mark each row in the run record as pass, fail, or not run, with evidence.
+## Walk through a familiar dataset
 
-| ID | Action | Expected result |
-| --- | --- | --- |
-| B1 | Select a dataset, draw a small study area, visualize, analyze, and download. | Dataset metadata, raster tiles, plot, summary, and export work without console errors. Exported values and units agree with the displayed result. |
-| B2 | Change analysis options after extraction succeeds. | The UI calls `/timeseries/analyze` using the completed extraction; no new extraction executes. |
-| B3 | Move between Visualize and Analyze while extraction is pending. | The pages share the existing job. Navigation neither abandons shared work nor launches a duplicate extraction. |
-| B4 | Change the study area or dataset during a pending request. Repeat with a delayed response from the original source. | Obsolete browser requests/retry waits stop. Late results never overwrite the current selection. The original server job may still finish; browser abort is not server cancellation. |
-| B5 | Let an extraction submission reach the API, then suppress its response. Restore connectivity and retry without reloading. | Retries retain the original idempotency key and captured payload, recover the same job ID, and cause only one extraction execution. |
-| B6 | After receiving a job ID, interrupt polling, reconnect, and click Retry time series on Visualize. | The UI resumes polling the same job and retrieves its result without launching a replacement extraction. |
-| B7 | Interrupt analysis, then reconnect and retry. | The completed extraction remains available and is reused. No new extraction starts. |
-| B8 | Keep submission requests failing through the submission budget. Repeat separately for polling. | Waiting ends with a recoverable connection/phase-deadline error. Retrying reconnects using the retained attempt or job. A transport failure does not recommend a smaller area. |
-| B9 | Delay an individual HTTP response or body beyond its operation budget. Separately inject a gateway 504 without a backend timeout code. | Waiting is bounded. These errors are treated as connection trouble, not a backend processing timeout; recovery preserves the attempt/job. |
-| B10 | Complete a transformed analysis, then submit different options and fail that request. Separately delay a transformed request, click Clear, and let the older request finish last. | Labels continue to describe the displayed result. Failed or obsolete requests never relabel the current traces. |
-| B11 | Fail metadata loading on each dataset workflow page, then restore the API and click Retry. Also open an unknown dataset or variable. | Failed loads stop spinning and show Retry and Back to datasets actions. Retry restores the workflow without a reload; unavailable selections show a distinct message. |
+For each step, record **works**, **problem**, or **not checked**. If something
+looks wrong, use **Report a bug** while you are still on that page. Explain what
+you expected, what actually happened, and how to repeat it. Technical details
+are collected for you; you do not need to find commits or image IDs.
 
-For B5, going offline before clicking does **not** prove recovery after
-acceptance. Confirm from API logs that acceptance occurred before losing the
-response. Count execution starts, not just repeated HTTP submissions: retries
-are expected to make multiple requests.
+### Find the right data
 
-For B8–B9, the current client limits are 60 seconds for submission/recovery,
-60 seconds separately for polling, 15 seconds per HTTP operation (including
-response-body reads), and 30 seconds for synchronous analysis. Allow a small
-measurement tolerance. These are separate phase budgets, not one combined cap.
+1. Browse or search for a familiar dataset. Try a filter you would normally use.
+   **Look for:** relevant results and clear dataset names and descriptions.
+2. Open the dataset and read its variables, units, dates, sources, and limitations.
+   **Look for:** information that agrees with your understanding of the data.
+   Report misleading labels or missing scientific context as well as broken controls.
 
-## API lifecycle checks
+### Explore an area
 
-Start from a valid extraction request captured in DevTools. Preserve its complete
-body and source headers when replaying it; use a fresh UUID for each independent
-attempt. Retain the response bodies, headers, job IDs, and relevant API logs.
+3. Draw or select a small study area, then open **Visualize**.
+   **Look for:** the intended area, a readable map and legend, and a time series.
+4. Change the variable or displayed date where available. Pan and zoom the map.
+   **Look for:** the map, legend, dates, and units changing together. Known spatial
+   patterns should be recognizable. Missing coverage should not look like zero.
+5. Change the study area and move between **Visualize** and **Analyze**.
+   **Look for:** results describing the current selection, with no old area's
+   values appearing under the new area's labels. Navigation should feel coherent.
 
-| ID | Action | Expected result |
-| --- | --- | --- |
-| A1 | Submit a valid request, then replay the same key and identical payload, including after completion. | Acceptance is `202`; every replay returns the same job ID. Only one extraction executes. |
-| A2 | Replay an existing key with a changed payload. | `409 IDEMPOTENCY_CONFLICT`; no replacement work is scheduled. |
-| A3 | Submit without `Idempotency-Key`. | `422`; no work is accepted. |
-| A4 | Hold all four staging extraction slots with controlled requests. Submit a fifth attempt and replay one already accepted request while capacity is full. | The new attempt receives `503 CAPACITY_EXHAUSTED` with `Retry-After: 5`. The browser can read that header through CORS. The accepted attempt still recovers its original job. After capacity clears, new work succeeds. |
-| A5 | Submit a valid request with a deliberately short supported processing budget that the workload exceeds. | Status becomes terminal `TIMED_OUT` with `PROCESSING_TIMEOUT`. The UI distinguishes it from connection trouble; no replacement extraction starts automatically. A later explicit attempt can succeed. |
-| A6 | Interrupt the worker responsible for an accepted job without normal cleanup. Poll/replay after its ownership lease expires. | The job reconciles to terminal `FAILED / WORKER_LOST`, admission is released, and its terminal result remains stable. A fresh attempt can succeed. |
-| A7 | Inspect accepted and status responses throughout a job's lifecycle. | Release identity and lifecycle fields are present as defined by the API contract. Status never exposes `base_series`, ownership tokens, fingerprints, or internal provenance. |
+### Analyze and download
 
-A4 needs requests that actually overlap long enough to fill capacity; a burst
-of fast successful requests is not sufficient. Use controlled fixtures/delays
-where necessary. A6 must preserve Redis: restarting/flushing Redis tests a
-different failure boundary and can lose recovery records entirely.
+6. On **Analyze**, start with the original, unsmoothed series. Compare the plot
+   and summary statistics with your scientific comparison case below.
+7. Try the spatial mean and median, then an analysis option you actually use,
+   such as a moving average or standardized values. Change the time interval.
+   **Look for:** understandable controls, correct labels and reference periods,
+   and results consistent with the selected method. It is valid for mean and
+   median to differ; neither is always larger.
+8. Download the result and open the numeric file and plot image.
+   **Look for:** correct dataset, variable, units, dates, and analysis choices.
+   Numeric values should agree with the plotted series, allowing for display
+   rounding. Numeric files contain the selected interval; plot images preserve
+   the current zoom, so zooming does not remove rows from the numeric export.
+9. Change an analysis option and try downloading while the result is updating.
+   **Look for:** Download becoming available only after the current analysis
+   succeeds, so you cannot accidentally export an older result as the new one.
 
-## Controlled fixture checks
+## Check scientific results
 
-Run these with isolated fixtures or a dedicated staging exercise when lifecycle,
-release identity, or analysis execution changes. Do not wait 24 hours or mutate
-shared Redis records just to force expiration. Record any omitted test and why.
+Use the supplied comparison case with the exact same study area, dates and
+settings. Record the expected and observed values and the tolerance used.
 
-| ID | Scenario | Expected result |
-| --- | --- | --- |
-| F1 | Stored results expire while their key tombstone remains. | Reads and matching submissions return `410 RESULT_EXPIRED`; no extraction is dispatched. A conflicting payload still returns `409 IDEMPOTENCY_CONFLICT`. |
-| F2 | New submission declares a stale source release; separately analyze stored work against a different currently served release. | Submission returns `409 SOURCE_CHANGED`; incompatible analysis returns `410 SOURCE_CHANGED`. Refresh metadata before a new source attempt. |
-| F3 | Recover an accepted attempt after the served release changes. | Recovery returns the original accepted job and release before current-source/capacity checks. It never silently extracts against the new release. |
-| F4 | Analysis exceeds its server budget. | The API reports `ANALYSIS_TIMEOUT`; the executing analysis process is stopped and its slot becomes available. The extraction remains usable. A later analysis can succeed without re-extracting. |
+- **Values and units:** compare several named dates, including the beginning
+  and end of the interval. Check sign, magnitude, units and chronological order.
+- **Spatial statistics:** compare mean and median against calculations from the
+  underlying selected raster cells. A map color is not a numeric reference.
+  Check how cells at the study-area boundary are selected in the reference case.
+- **Summary statistics:** independently check a short unsmoothed series. Missing
+  values must not become zeros. SKOPE uses population standard deviation.
+- **Analysis methods:** for methods you know, check the window length, reference
+  period and edge behavior against the agreed reference. A fixed-reference
+  z-score uses that reference period's mean and population standard deviation;
+  a constant or missing reference can make it undefined.
+- **Range changes:** untransformed values at overlapping dates should stay the
+  same when you narrow the interval. For transformed values, keep the method,
+  smoothing settings and explicit reference period fixed when comparing.
+- **Missing data:** where a known gap exists, confirm the plot, summary and export
+  handle it consistently. Smoothing edges or undefined transforms can create
+  additional missing values; those need interpretation rather than automatic failure.
 
-## Release gate
+These are targeted acceptance checks, not a new validation of the entire source
+dataset. Report a scientifically suspicious result even if every control works.
 
-- [ ] B1–B11 and A1–A7 pass, or an explicit release decision records an exception,
-  its evidence, and its impact.
-- [ ] Applicable F checks pass; omitted fixture checks have a recorded reason.
-- [ ] Submission and polling recovery preserve job identity without duplicate
-  extraction execution.
-- [ ] Stale results never replace the current source's results.
-- [ ] Processing timeout, worker loss, and connection failures leave staging
-  able to accept and complete fresh work.
-- [ ] Production promotion selects the intended staging-tested images. If a
-  local rebuild is necessary, record it and the validation performed on it.
+## Try ordinary interruptions
 
-## Run record
+These checks are optional. Do not interrupt other testers or try to overload the site.
 
-Copy this template into the release/PR record for each staging pass. Keep the
-reusable plan here; link to logs, screenshots, and exports from the run record.
+- Change your selection while results are loading. The final result should
+  describe your latest selection.
+- If you encounter an error, read the message and use Retry if offered. It
+  should explain a useful next step and let you continue when the problem clears.
+- Try a narrower browser window and use the keyboard for a few controls.
+  Note anything unreadable, unreachable or unexpectedly difficult.
+
+You do not need to disconnect requests, terminate workers, inspect network
+traffic, or prove how many jobs ran. Maintainers handle those checks separately.
+
+## Share your findings
+
+Use **Report a bug** for each distinct problem. Include what you expected,
+what happened, and enough steps to repeat it. For a numerical discrepancy,
+include the reference source, expected value, observed value and tolerance.
+Use a screenshot if it helps, but do not include information you do not want to share.
+
+If reporting from the site fails, keep your notes and use the contact address
+provided by the coordinator or the site's Contact link.
+
+A short completion note is enough:
 
 ```text
-Date/time and tester:
-UI URL / commit / image ID:
-API URL / commit / image IDs:
-CI runs/attempts or local-build details:
-Dataset release IDs:
-Browser/version:
-Study area and analysis options:
-
-Test ID | Pass / Fail / Not run | Evidence and observations
-
-Exceptions and reasons:
-Blocking defects / issue links:
-Release decision and owner:
+Name (optional) and date:
+Datasets and variables tried:
+Study area and dates:
+Workflow: works / problem / not checked
+Scientific comparison: agrees / differs / not checked
+Reference used and tolerance:
+Bug report references, or brief notes:
+Anything confusing or difficult:
 ```
+
+Maintainers prepare the site and run deployment/recovery checks using the
+[engineering checklist](staging-maintainer-checklist.md). Deployment readiness
+and scientific acceptance are recorded separately.

@@ -37,9 +37,11 @@ Include your `SKOPE_API_HOST_URL` override again if you use a custom API endpoin
 
 ## Deployment
 
-After deploying coordinated UI and API changes, run the
-[staging functional test plan](docs/staging-functional-test-plan.md) and attach
-the completed run record to the release or PR.
+Science-team members and end users follow the
+[staging functional test plan](docs/staging-functional-test-plan.md).
+Maintainers prepare and verify deployments with the separate
+[engineering checklist](docs/staging-maintainer-checklist.md), and attach its
+run record to the release or PR.
 
 Each deployment target selects its API endpoint explicitly:
 
